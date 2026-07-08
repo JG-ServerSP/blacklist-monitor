@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.db
+*.db-journal
+.DS_Store
+*.log
+graphify-out/
+.claude/settings.local.json
+1eff616f-67c3-418e-b395-29db414ca90e.png

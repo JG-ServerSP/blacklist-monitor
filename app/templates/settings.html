@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Configurações — Blacklist Monitor{% endblock %}
+{% block content %}
+<h1 class="page-title" data-i18n="settings.title">Configurações</h1>
+<p class="page-subtitle" data-i18n="settings.subtitle">SMTP, Pushover, Spamhaus DQS, resolver DNS e agendador</p>
+
+<div class="grid-3">
+  <div class="card">
+    <p class="section-title" data-i18n="settings.smtpTitle">SMTP (E-mail)</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.smtpHost">Host</label><input id="s-smtp-host" placeholder="smtp.seudominio.com"></div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div class="form-field"><label data-i18n="settings.smtpPort">Porta</label><input id="s-smtp-port" type="number" placeholder="587"></div>
+      <div class="form-field"><label data-i18n="settings.smtpTls">TLS</label>
+        <select id="s-smtp-tls"><option value="true" data-i18n="common.yes">Sim</option><option value="false" data-i18n="common.no">Não</option></select>
+      </div>
+    </div>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.smtpUser">Usuário</label><input id="s-smtp-user"></div>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.smtpPassword">Senha</label><input id="s-smtp-password" type="password" placeholder="deixe vazio para manter" data-i18n-placeholder="settings.smtpPasswordPlaceholder"></div>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.smtpFrom">Remetente</label><input id="s-smtp-from" placeholder="alertas@seudominio.com"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-title" data-i18n="settings.pushoverTitle">Pushover</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.pushoverToken">Application Token</label><input id="s-pushover" type="password" placeholder="deixe vazio para manter" data-i18n-placeholder="settings.smtpPasswordPlaceholder"></div>
+    <p class="section-title" style="margin-top:20px;" data-i18n="settings.spamhausTitle">Spamhaus DQS</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.spamhausKey">Chave DQS</label><input id="s-dqs" type="password" placeholder="deixe vazio para manter" data-i18n-placeholder="settings.smtpPasswordPlaceholder"></div>
+    <p style="color:var(--text-muted);font-size:12px;" data-i18n-html="settings.spamhausHint">Necessária para consultar zonas com <code>{key}</code> (Spamhaus ZEN/DBL).</p>
+  </div>
+
+  <div class="card">
+    <p class="section-title" data-i18n="settings.dnsSchedulerTitle">Resolver DNS / Agendador</p>
+    <div class="form-field" style="margin-bottom:10px;">
+      <label data-i18n="settings.dnsResolvers">Resolvers DNS (IPs, separados por vírgula)</label>
+      <input id="s-resolvers" placeholder="ex.: 10.0.0.53 (Unbound local dedicado)" data-i18n-placeholder="settings.dnsResolversPlaceholder">
+    </div>
+    <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;" data-i18n="settings.dnsResolversHint">
+      Em produção, use um Unbound local sem forwarding para resolvers públicos — Spamhaus/SORBS
+      bloqueiam consultas de 8.8.8.8/1.1.1.1 e resolvers compartilhados de alto volume.
+    </p>
+    <div class="form-grid">
+      <div class="form-field"><label data-i18n="settings.interval">Intervalo geral (min)</label><input id="s-interval" type="number" placeholder="60"></div>
+      <div class="form-field"><label data-i18n="settings.recheck">Reverificação de listados (min)</label><input id="s-recheck" type="number" placeholder="15"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-title" data-i18n="settings.systemTitle">Sistema</p>
+    <div class="form-field" style="margin-bottom:10px;">
+      <label data-i18n="settings.logLevel">Nível de Log</label>
+      <select id="s-log-level">
+        <option value="nada" data-i18n="settings.logLevelNone">Nada (desliga o log)</option>
+        <option value="erro" data-i18n="settings.logLevelError">Erro</option>
+        <option value="info" selected data-i18n="settings.logLevelInfo">Info (padrão)</option>
+        <option value="log" data-i18n="settings.logLevelVerbose">Log (verboso/debug)</option>
+      </select>
+    </div>
+    <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;" data-i18n-html="settings.logLevelHint">Controla a verbosidade do log do serviço (tela Logs e <code>/var/log/blacklistmonitor.log</code>). Aplicado imediatamente, sem reiniciar.</p>
+    <div class="form-field">
+      <label data-i18n="settings.timezone">Fuso horário</label>
+      <select id="s-timezone">
+        <option value="UTC">UTC</option>
+        <option value="America/Sao_Paulo">América/São Paulo (BRT)</option>
+        <option value="America/Manaus">América/Manaus</option>
+        <option value="America/Noronha">América/Fernando de Noronha</option>
+        <option value="America/Rio_Branco">América/Rio Branco</option>
+        <option value="America/New_York">América/Nova York (EST)</option>
+        <option value="America/Los_Angeles">América/Los Angeles (PST)</option>
+        <option value="Europe/Lisbon">Europa/Lisboa</option>
+        <option value="Europe/London">Europa/Londres</option>
+        <option value="Europe/Madrid">Europa/Madri</option>
+      </select>
+    </div>
+    <p style="color:var(--text-muted);font-size:12px;margin-top:10px;" data-i18n="settings.timezoneHint">Usado para exibir os horários na tela de Logs.</p>
+  </div>
+
+  <div class="card">
+    <p class="section-title" data-i18n="settings.dbMaintenanceTitle">Manutenção do Banco de Dados</p>
+    <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;" data-i18n="settings.dbMaintenanceHint">Procura blocos CIDR e referências que sobraram no banco (ex.: de reimportações) e não pertencem a nenhum IP monitorado atualmente.</p>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="btn btn-secondary" onclick="checkDatabase()" data-i18n="settings.dbCheck">Verificar Banco de Dados</button>
+      <button class="btn btn-danger" id="db-clean-btn" onclick="cleanDatabase()" style="display:none;" data-i18n="settings.dbClean">Limpar Registros Órfãos</button>
+    </div>
+    <div id="db-check-result"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-title" data-i18n="settings.languageTitle">Idioma</p>
+    <div class="form-field">
+      <label data-i18n="settings.language">Idioma do sistema</label>
+      <select id="s-language">
+        <option value="pt-BR">Português (Brasil)</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="de">Deutsch</option>
+      </select>
+    </div>
+    <p style="color:var(--text-muted);font-size:12px;margin-top:10px;" data-i18n="settings.languageHint">Altera o idioma da interface para todos os usuários. A página será recarregada ao salvar.</p>
+  </div>
+</div>
+
+<button class="btn btn-primary" onclick="saveSettings()" data-i18n="settings.save">Salvar Configurações</button>
+
+<div class="card" style="max-width:420px;margin-top:20px;">
+  <p class="section-title" data-i18n="settings.accountTitle">Minha Conta</p>
+  <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.currentPassword">Senha atual</label><input id="pw-current" type="password"></div>
+  <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.newPassword">Nova senha (mín. 8 caracteres)</label><input id="pw-new" type="password"></div>
+  <button class="btn btn-secondary" onclick="changePassword()" data-i18n="settings.changePassword">Trocar Senha</button>
+
+  <p class="section-title" style="margin-top:20px;" data-i18n="settings.myLanguageTitle">Meu Idioma</p>
+  <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;" data-i18n="settings.myLanguageHint">Define o idioma da interface só para você, sem afetar os outros usuários. A página será recarregada ao salvar.</p>
+  <div class="form-field" style="margin-bottom:10px;">
+    <select id="my-language">
+      <option value="" data-i18n="settings.myLanguageDefault">Usar idioma do sistema</option>
+      <option value="pt-BR">Português (Brasil)</option>
+      <option value="en">English</option>
+      <option value="es">Español</option>
+      <option value="fr">Français</option>
+      <option value="de">Deutsch</option>
+    </select>
+  </div>
+  <button class="btn btn-secondary" onclick="saveMyLanguage()" data-i18n="settings.saveLanguage">Salvar Idioma</button>
+
+  <p class="section-title" style="margin-top:20px;" data-i18n="settings.myNotificationsTitle">Minhas Notificações</p>
+  <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;" data-i18n="settings.myNotificationsHint">Usados quando uma Regra de Alerta te notificar diretamente.</p>
+  <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.notifyEmail">E-mail para notificações</label><input id="my-notify-email" type="email" placeholder="deixe vazio para usar seu e-mail de login" data-i18n-placeholder="settings.notifyEmailPlaceholder"></div>
+  <div class="form-field" style="margin-bottom:10px;"><label data-i18n="settings.pushoverUserKey">Pushover User Key</label><input id="my-pushover-key" placeholder="chave pessoal do app Pushover" data-i18n-placeholder="settings.pushoverUserKeyPlaceholder"></div>
+  <button class="btn btn-secondary" onclick="saveMyNotifications()" data-i18n="settings.saveNotifications">Salvar Notificações</button>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/settings.js"></script>{% endblock %}

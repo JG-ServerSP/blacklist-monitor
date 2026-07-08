@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'pt-BR' }}" data-lang="{{ lang or 'pt-BR' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Blacklist Monitor{% endblock %}</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="/static/js/i18n.js"></script>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">🛡️</div>
+      <span>Blacklist Monitor</span>
+    </div>
+
+    <div class="section-label" data-i18n="nav.section.main">Principal</div>
+    <a class="nav-item {{ 'active' if active_page == 'dashboard' }}" href="/" data-i18n="nav.dashboard">📊 Dashboard</a>
+    <a class="nav-item {{ 'active' if active_page == 'ips' }}" href="/ips" data-i18n="nav.ips">🖥️ IPs Monitorados</a>
+    <a class="nav-item {{ 'active' if active_page == 'domains' }}" href="/domains" data-i18n="nav.domains">🌐 Domínios Monitorados</a>
+    <a class="nav-item {{ 'active' if active_page == 'alert-rules' }}" href="/alert-rules" data-i18n="nav.alertRules">🚨 Alertas</a>
+
+    <div class="section-label" data-i18n="nav.section.management">Gerenciamento</div>
+    <a class="nav-item {{ 'active' if active_page == 'clients' }}" href="/clients" data-i18n="nav.clients">👥 Clientes</a>
+    <a class="nav-item {{ 'active' if active_page == 'groups' }}" href="/groups" data-i18n="nav.groups">🗂️ Grupos de IP</a>
+
+    <div class="section-label" data-i18n="nav.section.tools">Ferramentas</div>
+    <a class="nav-item" href="/ips" data-i18n="nav.diagnostics">🩺 Diagnóstico</a>
+
+    <div class="section-label" data-i18n="nav.section.reports">Relatórios</div>
+    <a class="nav-item {{ 'active' if active_page == 'activity' }}" href="/activity" data-i18n="nav.activity">📜 Atividades</a>
+    <a class="nav-item {{ 'active' if active_page == 'blacklists' }}" href="/blacklists" data-i18n="nav.blacklists">🚫 Blacklists</a>
+    <a class="nav-item {{ 'active' if active_page == 'logs' }}" href="/logs" data-i18n="nav.logs">🧾 Logs</a>
+
+    <div class="section-label" data-i18n="nav.section.config">Config</div>
+    <a class="nav-item {{ 'active' if active_page == 'users' }}" href="/users" data-i18n="nav.users">🔑 Usuários</a>
+    <a class="nav-item {{ 'active' if active_page == 'settings' }}" href="/settings" data-i18n="nav.settings">⚙️ Configurações</a>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="search">
+        🔍 <input placeholder="Buscar IP, domínio, cliente, serviço..." data-i18n-placeholder="topbar.search">
+      </div>
+      <div class="notif-wrap">
+        <button type="button" class="icon-btn" id="notif-bell-btn" title="Notificações" data-i18n-title="topbar.notifications" onclick="toggleNotifPopup()">
+          🔔<span id="bell-count" class="dot" style="display:none"></span>
+        </button>
+        <div id="notif-popup" class="notif-popup" style="display:none;">
+          <div class="notif-popup-header" data-i18n="topbar.notifications">Notificações</div>
+          <div id="notif-popup-list" class="notif-popup-list"></div>
+          <a href="/activity" class="btn btn-outline notif-popup-viewall" data-i18n="topbar.viewAll">Ver todas</a>
+        </div>
+      </div>
+      <a class="icon-btn" href="/settings" title="Configurações" data-i18n-title="topbar.settings">⚙️</a>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="avatar">👤</div>
+        <div style="font-size:13px;line-height:1.3;">
+          <div id="topbar-username" style="font-weight:600;">Administrador</div>
+          <div id="topbar-useremail" style="color:var(--text-muted);font-size:12px;">admin@seudominio.com</div>
+        </div>
+        <button id="logout-btn" class="icon-btn" title="Sair" data-i18n-title="topbar.logout">⏻</button>
+      </div>
+    </div>
+
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

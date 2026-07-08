@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Atividades — Blacklist Monitor{% endblock %}
+{% block content %}
+<h1 class="page-title" data-i18n="activity.pageTitle">Atividades</h1>
+<p class="page-subtitle" data-i18n="activity.pageSubtitle">Auditoria de ações do sistema e dos usuários</p>
+<div class="card">
+  <div id="activity-feed-full"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>requireAuth().then(() => renderActivityFeed("activity-feed-full", 200));</script>
+{% endblock %}

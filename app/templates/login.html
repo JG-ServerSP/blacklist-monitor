@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'pt-BR' }}" data-lang="{{ lang or 'pt-BR' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login — Blacklist Monitor</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="/static/js/i18n.js"></script>
+</head>
+<body>
+<div class="login-page">
+  <div class="card login-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <div class="logo" style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;">🛡️</div>
+      <span style="font-weight:700;font-size:18px;">Blacklist Monitor</span>
+    </div>
+    <p class="section-title" data-i18n="login.title">Entrar</p>
+    <div class="form-field" style="margin-bottom:12px;">
+      <label data-i18n="login.email">E-mail</label>
+      <input id="login-email" type="email" autocomplete="username">
+    </div>
+    <div class="form-field" style="margin-bottom:12px;">
+      <label data-i18n="login.password">Senha</label>
+      <input id="login-password" type="password" autocomplete="current-password">
+    </div>
+    <div class="form-field" id="totp-field" style="margin-bottom:16px;display:none;">
+      <label data-i18n="login.totp">Código 2FA</label>
+      <input id="login-totp" type="text" placeholder="000000">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doLogin()" data-i18n="login.submit">Entrar</button>
+    <p id="login-error" style="color:var(--critical);font-size:13px;margin-top:10px;"></p>
+  </div>
+</div>
+<script src="/static/js/app.js"></script>
+<script>
+async function doLogin() {
+  const email = document.getElementById("login-email").value;
+  const password = document.getElementById("login-password").value;
+  const totp_code = document.getElementById("login-totp").value;
+  const errorEl = document.getElementById("login-error");
+  errorEl.textContent = "";
+  try {
+    const resp = await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password, totp_code: totp_code || null }),
+    });
+    Auth.setToken(resp.access_token);
+    Auth.setUser(resp.user);
+    window.location.href = "/";
+  } catch (e) {
+    errorEl.textContent = e.message || t("login.genericError");
+  }
+}
+document.getElementById("login-password").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+</script>
+</body>
+</html>

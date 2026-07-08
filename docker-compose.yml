@@ -1,0 +1,40 @@
+# Stack de produção sugerida no PLANEJAMENTO (seção 2.1/2.2), adaptada ao MVP
+# efetivamente implementado neste repositório: FastAPI com scheduler interno
+# (APScheduler) em vez de Celery+Redis, e Postgres em vez de SQLite.
+#
+# O Unbound é essencial em produção: Spamhaus/SORBS bloqueiam consultas vindas
+# de resolvers públicos ou de alto volume. Aponte DNS_RESOLVERS para o serviço
+# "unbound" abaixo.
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://blacklist:blacklist@postgres:5432/blacklist_monitor
+      DNS_RESOLVERS: unbound
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - unbound
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: blacklist
+      POSTGRES_PASSWORD: blacklist
+      POSTGRES_DB: blacklist_monitor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  unbound:
+    image: mvance/unbound:latest
+    restart: unless-stopped
+    # Resolver recursivo isolado, sem forwarding para 8.8.8.8/1.1.1.1 -- ver
+    # PLANEJAMENTO-blacklist-monitor.md secao 2.3. Monte um unbound.conf
+    # customizado aqui se quiser afinar rate limiting/cache.
+
+volumes:
+  pgdata:

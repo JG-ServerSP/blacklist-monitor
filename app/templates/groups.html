@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Grupos de IP — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+  <div>
+    <h1 class="page-title" data-i18n="groups.title">Grupos de IP</h1>
+    <p class="page-subtitle" data-i18n="groups.subtitle">Configurações herdáveis: modo de ping, intervalo de verificação, datacenter</p>
+  </div>
+  <button class="btn btn-primary" onclick="openGroupModal()" data-i18n="groups.newGroup">+ Novo Grupo</button>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th data-i18n="groups.colName">Nome</th><th data-i18n="groups.colDatacenter">Datacenter</th><th data-i18n="groups.colPingMode">Modo de Ping</th><th data-i18n="groups.colInterval">Intervalo (min)</th><th colspan="2"></th></tr></thead>
+      <tbody id="groups-tbody"></tbody>
+    </table>
+  </div>
+  <div id="groups-empty" class="empty-state" style="display:none;" data-i18n="groups.emptyState">Nenhum grupo cadastrado</div>
+</div>
+
+<div id="group-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <p class="section-title" id="group-modal-title" data-i18n="groups.modalTitleNew">Novo Grupo de IP</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="groups.labelName">Nome</label><input id="group-name"></div>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="groups.labelDatacenter">Datacenter</label><input id="group-dc"></div>
+    <div class="form-field" style="margin-bottom:10px;">
+      <label data-i18n="groups.labelPingMode">Modo de Ping</label>
+      <select id="group-ping-mode">
+        <option value="skip_unreachable" data-i18n="groups.pingModeSkipDefault">Pular se não responder (padrão)</option>
+        <option value="check_all" data-i18n="groups.pingModeCheckAll">Verificar todos</option>
+        <option value="tcp_fallback" data-i18n="groups.pingModeTcpFallback">Fallback TCP</option>
+      </select>
+    </div>
+    <div class="form-field" style="margin-bottom:16px;"><label data-i18n="groups.labelInterval">Intervalo de verificação (min)</label><input id="group-interval" type="number" placeholder="60"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeGroupModal()" data-i18n="groups.cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitGroup()" data-i18n="groups.save">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/groups.js"></script>{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Clientes — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+  <div>
+    <h1 class="page-title" data-i18n="clients.title">Clientes</h1>
+    <p class="page-subtitle" data-i18n="clients.subtitle">Clientes associados aos IPs e serviços monitorados</p>
+  </div>
+  <button class="btn btn-primary" onclick="openClientModal()" data-i18n="clients.addButton">+ Novo Cliente</button>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th data-i18n="clients.colName">Nome</th><th data-i18n="clients.colEmail">E-mail de contato</th><th data-i18n="clients.colCreated">Criado em</th><th colspan="2"></th></tr></thead>
+      <tbody id="clients-tbody"></tbody>
+    </table>
+  </div>
+  <div id="clients-empty" class="empty-state" style="display:none;" data-i18n="clients.emptyState">Nenhum cliente cadastrado</div>
+</div>
+
+<div id="client-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <p class="section-title" id="client-modal-title">Novo Cliente</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="clients.colName">Nome</label><input id="client-name"></div>
+    <div class="form-field" style="margin-bottom:16px;"><label data-i18n="clients.colEmail">E-mail de contato</label><input id="client-email" type="email"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeClientModal()" data-i18n="clients.cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitClient()" data-i18n="clients.save">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/clients.js"></script>{% endblock %}

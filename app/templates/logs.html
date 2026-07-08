@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Logs — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+  <div>
+    <h1 class="page-title" data-i18n="logs.title">Logs</h1>
+    <p class="page-subtitle" data-i18n="logs.subtitle">Log do serviço (nível controlado em Configurações → Sistema)</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    <input id="log-filter-q" placeholder="Buscar na mensagem..." data-i18n-placeholder="logs.searchPlaceholder" style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--card-border);border-radius:8px;padding:8px 12px;color:var(--text);">
+    <select id="log-filter-level" style="background:var(--bg);border:1px solid var(--card-border);border-radius:8px;padding:8px 12px;color:var(--text);">
+      <option value="" data-i18n="logs.filterAll">Todos os níveis</option>
+      <option value="DEBUG" data-i18n="logs.levelDebug">Debug</option>
+      <option value="INFO" data-i18n="logs.levelInfo">Info</option>
+      <option value="WARNING" data-i18n="logs.levelWarning">Warning</option>
+      <option value="ERROR" data-i18n="logs.levelError">Erro</option>
+      <option value="CRITICAL" data-i18n="logs.levelCritical">Critical</option>
+    </select>
+    <button class="btn btn-outline" onclick="loadLogs()" data-i18n="common.filter">Filtrar</button>
+    <button class="btn btn-outline" onclick="loadLogs()" data-i18n="logs.refresh">🔄 Atualizar</button>
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th style="white-space:nowrap;" data-i18n="logs.colWhen">Quando</th><th data-i18n="logs.colLevel">Nível</th><th data-i18n="logs.colSource">Origem</th><th data-i18n="logs.colMessage">Mensagem</th></tr></thead>
+      <tbody id="logs-tbody"></tbody>
+    </table>
+  </div>
+  <div id="logs-empty" class="empty-state" style="display:none;" data-i18n="logs.emptyState">Nenhuma linha de log encontrada (verifique se o Nível de Log em Configurações não está em "Nada")</div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/logs.js"></script>{% endblock %}

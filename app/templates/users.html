@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Usuários — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+  <div>
+    <h1 class="page-title" data-i18n="users.title">Usuários</h1>
+    <p class="page-subtitle" data-i18n="users.subtitle">Contas de acesso ao sistema, papéis (RBAC) e 2FA</p>
+  </div>
+  <button class="btn btn-primary" onclick="openUserModal()" data-i18n="users.newUser">+ Novo Usuário</button>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th data-i18n="users.colName">Nome</th><th data-i18n="users.colEmail">E-mail</th><th data-i18n="users.colRole">Papel</th><th data-i18n="users.col2fa">2FA</th><th data-i18n="common.status">Status</th><th data-i18n="users.colCreated">Criado em</th><th colspan="3"></th></tr></thead>
+      <tbody id="users-tbody"></tbody>
+    </table>
+  </div>
+  <div id="users-empty" class="empty-state" style="display:none;" data-i18n="users.emptyState">Nenhum usuário cadastrado</div>
+</div>
+
+<div id="user-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <p class="section-title" id="user-modal-title" data-i18n="users.modalTitleNew">Novo Usuário</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="users.labelName">Nome</label><input id="user-name"></div>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="users.labelEmail">E-mail</label><input id="user-email" type="email"></div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div class="form-field"><label data-i18n="users.labelRole">Papel</label>
+        <select id="user-role">
+          <option value="admin" data-i18n="users.roleAdmin">Administrador</option>
+          <option value="operator" selected data-i18n="users.roleOperator">Operador</option>
+          <option value="readonly" data-i18n="users.roleReadonly">Somente leitura</option>
+        </select>
+      </div>
+      <div class="form-field" id="user-status-field" style="display:none;">
+        <label data-i18n="users.labelStatus">Status</label>
+        <select id="user-active">
+          <option value="true" data-i18n="users.active">Ativo</option>
+          <option value="false" data-i18n="users.inactive">Inativo</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-field" style="margin-bottom:16px;">
+      <label id="user-password-label" data-i18n="users.labelPassword">Senha</label>
+      <input id="user-password" type="password" placeholder="mínimo 8 caracteres" data-i18n-placeholder="users.passwordPlaceholderNew">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeUserModal()" data-i18n="users.cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitUser()" data-i18n="users.save">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/users.js"></script>{% endblock %}

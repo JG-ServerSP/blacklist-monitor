@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Regras de Alerta — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+  <div>
+    <h1 class="page-title" data-i18n="alertRules.title">Regras de Alerta</h1>
+    <p class="page-subtitle" data-i18n="alertRules.subtitle">Condições e canais de notificação para transições de listagem</p>
+  </div>
+  <button class="btn btn-primary" onclick="openRuleModal()" data-i18n="alertRules.newRule">+ Nova Regra</button>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th data-i18n="alertRules.colName">Nome</th><th data-i18n="alertRules.colConditions">Condições</th><th data-i18n="alertRules.colChannels">Canais</th><th data-i18n="common.status">Status</th><th colspan="2"></th></tr></thead>
+      <tbody id="rules-tbody"></tbody>
+    </table>
+  </div>
+  <div id="rules-empty" class="empty-state" style="display:none;" data-i18n="alertRules.emptyState">Nenhuma regra cadastrada. Sem regras, listagens são detectadas mas ninguém é notificado.</div>
+</div>
+
+<div id="rule-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <p class="section-title" id="rule-modal-title" data-i18n="alertRules.modalTitleNew">Nova Regra de Alerta</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="alertRules.labelName">Nome</label><input id="rule-name" placeholder="ex.: Crítico -> NOC" data-i18n-placeholder="alertRules.namePlaceholder"></div>
+    <div class="form-field" style="margin-bottom:10px;">
+      <label data-i18n="alertRules.labelMinSeverity">Severidade mínima</label>
+      <select id="rule-min-severity">
+        <option value="" data-i18n="alertRules.anySeverity">Qualquer</option>
+        <option value="low" data-i18n="severity.low">Baixa</option><option value="medium" data-i18n="severity.medium">Média</option><option value="high" data-i18n="severity.high">Alta</option><option value="critical" data-i18n="severity.critical">Crítica</option>
+      </select>
+    </div>
+    <div class="form-field" style="margin-bottom:10px;">
+      <label data-i18n="alertRules.labelTrigger">Disparar quando</label>
+      <select id="rule-on-resolution">
+        <option value="enter" data-i18n="alertRules.onEnter">IP entra na blacklist</option>
+        <option value="resolution" data-i18n="alertRules.onResolution">IP sai da blacklist (resolução)</option>
+        <option value="error" data-i18n="alertRules.onError">Falha ao verificar (erro de DNS/consulta)</option>
+      </select>
+    </div>
+    <p class="section-title" style="margin-top:14px;" data-i18n="alertRules.channelEmailTitle">Canal: E-mail</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="alertRules.labelSendTo">Enviar para</label><input id="rule-email-to" placeholder="noc@empresa.com (deixe vazio para não usar e-mail)" data-i18n-placeholder="alertRules.emailPlaceholder"></div>
+    <p class="section-title" data-i18n="alertRules.channelPushoverTitle">Canal: Pushover</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="alertRules.labelUserKey">User key</label><input id="rule-pushover-key" placeholder="deixe vazio para não usar Pushover" data-i18n-placeholder="alertRules.pushoverPlaceholder"></div>
+    <p class="section-title" data-i18n="alertRules.channelUserTitle">Canal: Notificar Usuário</p>
+    <div class="form-field" style="margin-bottom:16px;">
+      <label data-i18n="alertRules.labelRegisteredUser">Usuário cadastrado</label>
+      <select id="rule-notify-user"><option value="" data-i18n="alertRules.noneOption">Nenhum</option></select>
+      <p style="color:var(--text-muted);font-size:12px;margin-top:4px;" data-i18n="alertRules.userChannelHint">Usa o e-mail/Pushover key cadastrados no perfil do usuário (Configurações → Minha Conta).</p>
+    </div>
+    <div class="form-field" style="margin-bottom:16px;">
+      <label data-i18n="alertRules.labelStatus">Status</label>
+      <select id="rule-enabled"><option value="true" data-i18n="alertRules.active">Ativa</option><option value="false" data-i18n="alertRules.inactive">Inativa</option></select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeRuleModal()" data-i18n="alertRules.cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitRule()" data-i18n="alertRules.save">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/alert-rules.js"></script>{% endblock %}

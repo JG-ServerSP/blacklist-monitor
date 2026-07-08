@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;">
+  <div>
+    <h1 class="page-title" data-i18n="dashboard.title">Visão Geral</h1>
+    <p class="page-subtitle" data-i18n="dashboard.subtitle">Resumo da reputação dos seus IPs e domínios</p>
+  </div>
+  <button class="btn btn-secondary" onclick="exportReport()" data-i18n="dashboard.exportReport">⬇ Exportar Relatório</button>
+</div>
+
+<div class="kpi-grid" id="kpi-grid"></div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="tabs" id="severity-tabs">
+      <div class="tab active" data-sev="all"><span data-i18n="dashboard.tabAll">Todos</span> <span id="count-all"></span></div>
+      <div class="tab" data-sev="critical"><span data-i18n="dashboard.tabCritical">Críticos</span> <span id="count-critical"></span></div>
+      <div class="tab" data-sev="high"><span data-i18n="dashboard.tabHigh">Altos</span> <span id="count-high"></span></div>
+      <div class="tab" data-sev="medium"><span data-i18n="dashboard.tabMedium">Médios</span> <span id="count-medium"></span></div>
+      <div class="tab" data-sev="low"><span data-i18n="dashboard.tabLow">Baixos</span> <span id="count-low"></span></div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th data-i18n="dashboard.thIp">IP</th><th data-i18n="dashboard.thClientService">Cliente / Serviço</th><th data-i18n="dashboard.thLists">Listas</th><th data-i18n="dashboard.thSeverity">Severidade</th><th data-i18n="dashboard.thLastDetection">Última Detecção</th><th></th></tr>
+        </thead>
+        <tbody id="listings-tbody"></tbody>
+      </table>
+    </div>
+    <div id="listings-empty" class="empty-state" style="display:none;" data-i18n="dashboard.noActiveListings">Nenhuma listagem ativa 🎉</div>
+  </div>
+
+  <div class="card">
+    <p class="section-title" data-i18n="dashboard.ipsOverview">Total de IPs x Limpos</p>
+    <canvas id="ips-overview-chart" height="200"></canvas>
+    <div id="ips-overview-legend" style="margin-top:12px;font-size:13.5px;"></div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <p class="section-title" data-i18n="dashboard.listingsOverTime">Listagens ao Longo do Tempo</p>
+  <canvas id="timeline-chart" height="80"></canvas>
+</div>
+
+<div class="grid-3">
+  <div class="card" id="ip-detail-card">
+    <p class="section-title" data-i18n="dashboard.ipDetails">Detalhes do IP</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input id="ip-lookup-input" placeholder="Consultar qualquer IP (ex: 8.8.8.8)" data-i18n-placeholder="dashboard.ipLookupPlaceholder"
+             onkeydown="if(event.key==='Enter') lookupArbitraryIP()"
+             style="flex:1;background:var(--bg);border:1px solid var(--card-border);border-radius:8px;padding:8px 12px;color:var(--text);">
+      <button class="btn btn-secondary" onclick="lookupArbitraryIP()" data-i18n="dashboard.lookupButton">Consultar</button>
+    </div>
+    <div id="ip-detail-body" class="empty-state" data-i18n="dashboard.selectIpFromTable">Selecione um IP na tabela acima</div>
+  </div>
+  <div class="card" id="diagnostics-card">
+    <p class="section-title" data-i18n="dashboard.quickDiagnostics">Diagnóstico Rápido</p>
+    <div id="diagnostics-body" class="empty-state" data-i18n="dashboard.selectIpForDiagnostics">Selecione um IP para rodar o diagnóstico</div>
+  </div>
+</div>
+
+<div class="card">
+  <p class="section-title" data-i18n="dashboard.recentActivities">Atividades Recentes</p>
+  <div id="activity-feed"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Domínios Monitorados — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+  <div>
+    <h1 class="page-title" data-i18n="domains.title">Domínios Monitorados</h1>
+    <p class="page-subtitle" data-i18n="domains.subtitle">Monitoramento em SURBL / Spamhaus DBL</p>
+  </div>
+  <button class="btn btn-primary" onclick="openDomainModal()" data-i18n="domains.addButton">+ Adicionar Domínio</button>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th data-i18n="domains.colDomain">Domínio</th><th data-i18n="domains.colClient">Cliente</th><th data-i18n="domains.colStatus">Status</th><th data-i18n="domains.colLastCheck">Última verificação</th><th></th></tr></thead>
+      <tbody id="domains-tbody"></tbody>
+    </table>
+  </div>
+  <div id="domains-empty" class="empty-state" style="display:none;" data-i18n="domains.emptyState">Nenhum domínio cadastrado ainda</div>
+</div>
+
+<div id="domain-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <p class="section-title" data-i18n="domains.modalAddTitle">Adicionar Domínio</p>
+    <div class="form-field" style="margin-bottom:10px;"><label data-i18n="domains.colDomain">Domínio</label><input id="domain-input" placeholder="exemplo.com" data-i18n-placeholder="domains.placeholderDomain"></div>
+    <div class="form-field" style="margin-bottom:16px;"><label data-i18n="domains.colClient">Cliente</label><select id="domain-client"></select></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeDomainModal()" data-i18n="domains.cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitDomain()" data-i18n="domains.add">Adicionar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/domains.js"></script>{% endblock %}

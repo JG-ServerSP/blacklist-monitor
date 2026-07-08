@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}IPs Monitorados — Blacklist Monitor{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+  <div>
+    <h1 class="page-title" data-i18n="ips.pageTitle">IPs Monitorados</h1>
+    <p class="page-subtitle" data-i18n="ips.pageSubtitle">Cadastro e status de blocos/IPs monitorados</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <label class="btn btn-secondary" style="cursor:pointer;">
+      <span data-i18n="ips.importCsv">⬆ Importar CSV</span>
+      <input id="csv-file" type="file" accept=".csv" style="display:none;" onchange="uploadCSV(this.files[0])">
+    </label>
+    <button class="btn btn-primary" onclick="openImportModal()" data-i18n="ips.addIpBlock">+ Adicionar IP/Bloco</button>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <input id="filter-q" placeholder="Buscar por IP..." data-i18n-placeholder="ips.searchPlaceholder" style="background:var(--bg);border:1px solid var(--card-border);border-radius:8px;padding:8px 12px;color:var(--text);">
+      <select id="filter-status" style="background:var(--bg);border:1px solid var(--card-border);border-radius:8px;padding:8px 12px;color:var(--text);">
+        <option value="" data-i18n="ips.allStatuses">Todos os status</option>
+        <option value="clean" data-i18n="status.clean">Limpo</option>
+        <option value="listed" data-i18n="status.listed">Listado</option>
+        <option value="unchecked" data-i18n="status.unchecked">Não verificado</option>
+        <option value="error" data-i18n="status.error">Erro</option>
+      </select>
+      <button class="btn btn-outline" onclick="applyFilters()" data-i18n="common.filter">Filtrar</button>
+      <button class="btn btn-outline" onclick="checkAllFiltered()" data-i18n="ips.checkAllBtn">Verificar todos</button>
+      <button class="btn btn-outline" id="btn-check-selected" onclick="checkSelected()" disabled data-i18n="ips.checkSelectedBtn">Verificar selecionados</button>
+      <button class="btn btn-outline" id="btn-edit-selected" onclick="editSelected()" disabled data-i18n="ips.editSelectedBtn">Editar selecionados</button>
+      <button class="btn btn-danger" id="btn-delete-selected" onclick="deleteSelected()" disabled data-i18n="ips.deleteSelectedBtn">Excluir selecionados</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <label for="filter-page-size" style="color:var(--text-muted);font-size:13px;" data-i18n="ips.perPage">Por página</label>
+      <select id="filter-page-size" onchange="changePageSize()" style="background:var(--bg);border:1px solid var(--card-border);border-radius:8px;padding:8px 12px;color:var(--text);">
+        <option value="20">20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th style="width:32px;"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"></th><th data-i18n="ips.colIp">IP</th><th data-i18n="ips.colClient">Cliente</th><th data-i18n="ips.colGroup">Grupo</th><th data-i18n="common.status">Status</th><th data-i18n="ips.colPing">Ping</th><th data-i18n="ips.colInterval">Intervalo</th><th data-i18n="ips.colLastChecked">Última verificação</th><th></th></tr></thead>
+      <tbody id="ips-tbody"></tbody>
+    </table>
+  </div>
+  <div id="ips-empty" class="empty-state" style="display:none;" data-i18n="ips.emptyState">Nenhum IP cadastrado ainda</div>
+  <div id="ips-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 4px 0;flex-wrap:wrap;gap:8px;">
+    <span id="pagination-summary" style="color:var(--text-muted);font-size:13px;"></span>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="prevPage()" id="btn-prev-page" data-i18n="ips.prevPage">‹ Anterior</button>
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="nextPage()" id="btn-next-page" data-i18n="ips.nextPage">Próxima ›</button>
+    </div>
+  </div>
+</div>
+
+<div id="import-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <p class="section-title" data-i18n="ips.importModalTitle">Adicionar IP / Bloco / Range</p>
+    <div class="form-field" style="margin-bottom:10px;">
+      <label data-i18n="ips.importEntryLabel">CIDR, range (a.b.c.d-e) ou IP único</label>
+      <input id="import-entry" placeholder="45.77.32.0/27 ou 45.77.32.1-45.77.32.50 ou 45.77.32.15" data-i18n-placeholder="ips.importEntryPlaceholder">
+    </div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div class="form-field"><label data-i18n="ips.colClient">Cliente</label><select id="import-client"></select></div>
+      <div class="form-field"><label data-i18n="ips.colGroup">Grupo</label><select id="import-group"></select></div>
+    </div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div class="form-field"><label data-i18n="ips.datacenterLabel">Datacenter</label><input id="import-dc"></div>
+      <div class="form-field"><label data-i18n="ips.tagsLabel">Tags</label><input id="import-tags"></div>
+    </div>
+    <div class="form-field" style="margin-bottom:16px;">
+      <label data-i18n="ips.checkIntervalLabel">Intervalo de verificação (min)</label>
+      <input id="import-interval" type="number" min="1" placeholder="deixe vazio para usar o padrão do grupo/global" data-i18n-placeholder="ips.intervalDefaultPlaceholder">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeImportModal()" data-i18n="common.cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitImport()" data-i18n="ips.importSubmit">Importar</button>
+    </div>
+  </div>
+</div>
+
+<div id="edit-ip-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <p class="section-title" id="edit-ip-title">Editar IP</p>
+    <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;margin-bottom:14px;" data-i18n="ips.editHint">Deixe um campo em "— (não alterar)" ou vazio para manter o valor atual.</p>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div class="form-field"><label data-i18n="ips.colClient">Cliente</label><select id="edit-ip-client"></select></div>
+      <div class="form-field"><label data-i18n="ips.colGroup">Grupo</label><select id="edit-ip-group"></select></div>
+    </div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div class="form-field"><label data-i18n="ips.datacenterLabel">Datacenter</label><input id="edit-ip-dc" placeholder="não alterar" data-i18n-placeholder="ips.noChangePlaceholder"></div>
+      <div class="form-field"><label data-i18n="ips.tagsLabel">Tags</label><input id="edit-ip-tags" placeholder="não alterar" data-i18n-placeholder="ips.noChangePlaceholder"></div>
+    </div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div class="form-field"><label data-i18n="ips.enabledLabel">Habilitado</label>
+        <select id="edit-ip-enabled">
+          <option value="" data-i18n="ips.noChangeOption">— (não alterar)</option>
+          <option value="true" data-i18n="common.yes">Sim</option>
+          <option value="false" data-i18n="common.no">Não</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label data-i18n="ips.checkIntervalLabel">Intervalo de verificação (min)</label>
+        <input id="edit-ip-interval" type="number" min="1" placeholder="não alterar" data-i18n-placeholder="ips.noChangePlaceholder">
+      </div>
+    </div>
+    <div class="form-field" style="margin-bottom:16px;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;">
+        <input type="checkbox" id="edit-ip-interval-clear" onchange="document.getElementById('edit-ip-interval').disabled = this.checked;">
+        <span data-i18n="ips.useDefaultInterval">Usar intervalo padrão do grupo/global (remove o valor personalizado)</span>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeEditIPModal()" data-i18n="common.cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitEditIP()" data-i18n="common.save">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/ips.js"></script>{% endblock %}
