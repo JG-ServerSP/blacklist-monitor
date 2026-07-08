@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.crypto import decrypt, encrypt
 from app.database import get_db
-from app.models import SettingKV, User
+from app.models import Blacklist, SettingKV, User
 from app.schemas import SettingsUpdate
 from app.security import require_admin
 from app.services.logging_control import apply_log_level
@@ -36,7 +36,8 @@ def get_settings_values(db: Session = Depends(get_db), user: User = Depends(requ
 
 @router.put("")
 def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    for key, value in updates.items():
         if value is None:
             continue
         row = db.query(SettingKV).get(key)
@@ -45,7 +46,13 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db), user
             row.value_encrypted = stored
         else:
             db.add(SettingKV(key=key, value_encrypted=stored))
+    if updates.get("spamhaus_dqs_key"):
+        # Zones like Spamhaus ZEN/DBL ship disabled until a key is set, since
+        # querying them without one just returns resolver-blocked errors.
+        db.query(Blacklist).filter(
+            Blacklist.requires_key == True, Blacklist.enabled == False  # noqa: E712
+        ).update({"enabled": True})
     db.commit()
-    if "log_level" in payload.model_dump(exclude_unset=True):
+    if "log_level" in updates:
         apply_log_level(payload.log_level)
     return _get_all(db)

@@ -49,6 +49,10 @@ def update_blacklist(bl_id: int, payload: BlacklistUpdate, db: Session = Depends
         setattr(bl, k, v)
     if payload.api_key is not None:
         bl.api_key_encrypted = encrypt(payload.api_key) if payload.api_key else None
+        if bl.requires_key and payload.api_key:
+            # Zones like Spamhaus ZEN/DBL ship disabled until a key is set, since
+            # querying them without one just returns resolver-blocked errors.
+            bl.enabled = True
     db.commit()
     db.refresh(bl)
     return _to_out(bl, effective_settings(db).spamhaus_dqs_key)

@@ -32,7 +32,7 @@ BLACKLIST_SEED = [
             "127.0.0.11": {"sublist": "PBL", "severity": "low"},
         },
         delist_url="https://check.spamhaus.org/", lookup_url="https://check.spamhaus.org/",
-        rate_limit_qps=20, requires_key=True,
+        rate_limit_qps=20, requires_key=True, enabled=False,
     ),
     dict(
         name="Barracuda BRBL", zone="b.barracudacentral.org", type=BLType.ipv4,
@@ -73,7 +73,7 @@ BLACKLIST_SEED = [
         name="Spamhaus DBL", zone="{key}.dbl.dq.spamhaus.net", type=BLType.domain,
         default_severity=Severity.critical, return_code_map={"127.0.1.2": {"sublist": "DBL", "severity": "critical"}},
         delist_url="https://check.spamhaus.org/", lookup_url="https://check.spamhaus.org/",
-        rate_limit_qps=20, requires_key=True,
+        rate_limit_qps=20, requires_key=True, enabled=False,
     ),
 ]
 
