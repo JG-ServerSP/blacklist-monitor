@@ -268,6 +268,9 @@ docker compose up -d --build
 This starts three containers: `api` (the app + scheduler), `postgres`, and `unbound`. Check
 logs with `docker compose logs -f api`.
 
+The `api` image runs as an unprivileged user (not root), with `CAP_NET_RAW` granted only to
+the `ping` binary it shells out to for reachability checks.
+
 ---
 
 ## 6. Environment variables reference
