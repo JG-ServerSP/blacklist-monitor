@@ -83,6 +83,10 @@ class User(Base):
     # Idioma pessoal (sobrepõe Settings.language só para este usuário). None = usa o idioma do sistema.
     language = Column(String, nullable=True)
 
+    # Sem cascade de delete: excluir o usuário deve preservar a trilha de
+    # auditoria, apenas desvinculando (activity_log.user_id vira NULL).
+    activity_logs = relationship("ActivityLog", back_populates="user")
+
 
 class Client(Base):
     __tablename__ = "clients"
@@ -267,6 +271,8 @@ class ActivityLog(Base):
     entity = Column(String, nullable=True)
     payload = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="activity_logs")
 
 
 class SettingKV(Base):
