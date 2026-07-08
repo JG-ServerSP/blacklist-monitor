@@ -1,371 +1,708 @@
 # Blacklist Monitor
 
-IP/domain reputation monitoring against DNSBLs (Spamhaus ZEN via DQS, Barracuda, SpamCop,
-PSBL, SORBS, UCEPROTECT, SURBL, Spamhaus DBL): ping pre-check, listing lifecycle tracking,
-email + Pushover notifications, quick diagnostics (rDNS/FCrDNS/SPF/DKIM/DMARC/port 25),
-alert rules, IP/CIDR/CSV import, RBAC with 2FA, and a dark-themed dashboard. Built with
-FastAPI + SQLAlchemy + a server-rendered UI (no Node/build step required).
+Blacklist Monitor is a web-based reputation monitoring system for IP addresses and domains. It checks monitored assets against DNSBL/RBL lists, stores historical results, sends alerts, and provides DNS/mail diagnostics.
 
-This guide assumes no prior experience — every command is spelled out. If you get stuck,
-see [Troubleshooting](#troubleshooting) near the end.
+The project runs with FastAPI + SQLAlchemy and can be installed in two ways:
 
----
+- **Docker Compose**, recommended for production, with API, PostgreSQL, and Unbound.
+- Local/development installation with Python and SQLite.
 
-## 1. Requirements
+This README focuses mainly on the Docker Compose installation.
 
-- **Linux or macOS** (or Windows using WSL). Commands below assume a Debian/Ubuntu-style
-  Linux shell; adjust the package-manager commands if you're on something else.
-- **Python 3.12 or newer.**
-- **A terminal.** On Linux, open "Terminal" from your applications menu. On macOS, open
-  "Terminal" (search for it with Spotlight, `Cmd+Space`). On Windows, install
-  [WSL](https://learn.microsoft.com/windows/wsl/install) first and use its Linux terminal —
-  the commands in this guide won't work in plain `cmd.exe` or PowerShell.
-- **git** — only needed if you pick Option B below to download the code; you can skip
-  installing it if you use Option A.
+## What the system monitors
 
-Check what you already have:
+- Individual IP addresses.
+- CIDR blocks, for example `/24`.
+- IP ranges.
+- Domains.
+- IPv4 blacklists and domain blacklists.
+- Listing lifecycle: listed, clean, error, and not checked.
+- rDNS, FCrDNS, SPF, DKIM, DMARC, and port 25 diagnostics.
+- Email and Pushover alerts.
+- Users, permissions, 2FA, and admin panel settings.
+
+## Requirements
+
+For the Docker installation:
+
+- Updated Debian or Ubuntu server.
+- Root access or a user with sudo privileges.
+- Git.
+- Docker Engine.
+- Docker Compose plugin, using the `docker compose` command.
+
+## 1. Install Docker and Docker Compose
+
+On Debian/Ubuntu, run as root:
 
 ```bash
-python3 --version
-git --version
+apt update
+apt install -y ca-certificates curl git openssl
+install -m 0755 -d /etc/apt/keyrings
 ```
 
-If `python3` says "command not found", install it:
+Add the official Docker repository:
 
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip
+. /etc/os-release
+
+curl -fsSL https://download.docker.com/linux/$ID/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+
+cat > /etc/apt/sources.list.d/docker.sources <<EOF_DOCKER
+Types: deb
+URIs: https://download.docker.com/linux/$ID
+Suites: ${UBUNTU_CODENAME:-$VERSION_CODENAME}
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF_DOCKER
+
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
----
-
-## 2. Install — step by step (local/dev, SQLite)
-
-### Step 1 — Download the code
-
-Pick **one** of the two options below.
-
-#### Option A — Download the ZIP (no git needed, easiest)
-
-1. Open **https://github.com/JG-ServerSP/blacklist-monitor** in your browser.
-2. Click the green **`<> Code`** button, then click **Download ZIP**.
-3. Find the downloaded file (usually in your `Downloads` folder) and extract it:
-   - **Linux/macOS terminal:**
-     ```bash
-     cd ~/Downloads
-     unzip blacklist-monitor-main.zip
-     cd blacklist-monitor-main
-     ```
-     (If `unzip` says "command not found": `sudo apt install -y unzip`, then try again.)
-   - **Or using a file manager:** right-click the ZIP file → "Extract Here" / "Extract
-     All", then open a terminal inside the extracted folder (most file managers have an
-     "Open Terminal Here" option when you right-click inside the folder).
-4. Confirm you're in the right place — this command should list files like `app`,
-   `requirements.txt`, `README.md`:
-   ```bash
-   ls
-   ```
-
-#### Option B — Clone with git
-
-If you have `git` installed (see [Requirements](#1-requirements)):
+Test the installation:
 
 ```bash
+docker --version
+docker compose version
+docker run --rm hello-world
+```
+
+## 2. Download the project
+
+```bash
+cd /opt
 git clone https://github.com/JG-ServerSP/blacklist-monitor.git
-cd blacklist-monitor
+cd /opt/blacklist-monitor
 ```
 
-### Step 2 — Create an isolated Python environment ("virtual environment")
+## 3. Create the `.env` file
 
-This keeps this project's Python packages separate from the rest of your system.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-Your terminal prompt should now start with `(.venv)`. You'll need to run
-`source .venv/bin/activate` again every time you open a new terminal to work on this
-project.
-
-### Step 3 — Install the Python dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-This downloads and installs everything the app needs (FastAPI, SQLAlchemy, etc.) — it can
-take a minute or two.
-
-### Step 4 — Create your configuration file
-
-The app reads its settings from a file named `.env`. A template is provided:
+Copy the example file:
 
 ```bash
 cp .env.example .env
 ```
 
-### Step 5 — Generate real secret keys
-
-`.env` ships with placeholder values for `SECRET_KEY` and `FERNET_KEY`. These protect login
-sessions and encrypted data at rest — **do not skip this step**, even for local testing.
-
-Generate a `SECRET_KEY`:
+Or create a new `.env` file with secure keys:
 
 ```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+SECRET_KEY=$(openssl rand -base64 48)
+
+FERNET_KEY=$(docker run --rm python:3.12-slim python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
+
+ADMIN_PASSWORD=$(openssl rand -base64 18)
+
+cat > .env <<EOF_ENV
+APP_NAME="Blacklist Monitor"
+
+SECRET_KEY=$SECRET_KEY
+FERNET_KEY=$FERNET_KEY
+
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=$ADMIN_PASSWORD
+
+SPAMHAUS_DQS_KEY=
+
+DEFAULT_CHECK_INTERVAL_MINUTES=60
+LISTED_IP_RECHECK_MINUTES=15
+MAX_CIDR_EXPANSION=1024
+
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_USE_TLS=true
+SMTP_FROM=blacklist-monitor@localhost
+
+PUSHOVER_APP_TOKEN=
+
+CORS_ORIGINS=*
+LANGUAGE=en
+LOG_LEVEL=info
+EOF_ENV
+
+echo "Initial admin password: $ADMIN_PASSWORD"
 ```
 
-Generate a `FERNET_KEY`:
+Save the displayed password.
+
+Important variables:
+
+| Variable | Purpose |
+|---|---|
+| `SECRET_KEY` | Signs login/session tokens. |
+| `FERNET_KEY` | Encrypts sensitive data stored in the database. |
+| `ADMIN_EMAIL` | Initial administrator email address. |
+| `ADMIN_PASSWORD` | Initial administrator password. |
+| `SPAMHAUS_DQS_KEY` | Spamhaus DQS key, required for Spamhaus ZEN/DBL. |
+| `LANGUAGE` | Default UI language. Use `en`, `pt-BR`, `es`, `fr`, or `de`. |
+
+## 4. Configure `docker-compose.yml` with a fixed Unbound IP
+
+For production, use a dedicated DNS resolver. Do not use public resolvers such as `8.8.8.8`, `1.1.1.1`, or other high-volume shared resolvers for DNSBL queries.
+
+The application must receive the DNS resolver as an **IP address**. Therefore, the Docker Compose setup should create a dedicated network and assign a fixed IP to the `unbound` container.
+
+Replace your `docker-compose.yml` with this recommended model:
 
 ```bash
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+cat > docker-compose.yml <<'EOF_COMPOSE'
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://blacklist:blacklist@postgres:5432/blacklist_monitor
+      DNS_RESOLVERS: 172.28.53.53
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - unbound
+    networks:
+      - bmnet
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: blacklist
+      POSTGRES_PASSWORD: blacklist
+      POSTGRES_DB: blacklist_monitor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - bmnet
+
+  unbound:
+    image: mvance/unbound:latest
+    restart: unless-stopped
+    networks:
+      bmnet:
+        ipv4_address: 172.28.53.53
+
+volumes:
+  pgdata:
+
+networks:
+  bmnet:
+    ipam:
+      config:
+        - subnet: 172.28.53.0/24
+EOF_COMPOSE
 ```
 
-Each command prints one line of random text. Open `.env` in a text editor (e.g.
-`nano .env`) and replace the placeholder value after `SECRET_KEY=` and `FERNET_KEY=` with
-the values you just generated. Save and close the file.
+In this example:
 
-### Step 6 — Start the app
+- `api`: application container.
+- `postgres`: persistent PostgreSQL database.
+- `unbound`: dedicated DNS resolver for DNSBL queries.
+- Unbound IP address: `172.28.53.53`.
+
+Important: do not set `DNS_RESOLVERS=unbound`. The container name may be `unbound`, but the application DNS library expects an IP address, not the Docker service hostname.
+
+## 5. Start the application
 
 ```bash
-uvicorn app.main:app --reload
-```
-
-You should see log lines ending with something like:
-
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-...
-=== Admin user created: admin@example.com / generated password: aB3xY... ===
-Save this password now — it will not be shown again. Change it after your first login.
-```
-
-**Copy that generated password somewhere safe right now** — it's shown only once. If you
-missed it, see [Troubleshooting](#troubleshooting) below on how to reset it.
-
-### Step 7 — Open the app and log in
-
-Open your browser at **http://localhost:8000** (or `http://<server-ip>:8000` if you
-installed this on a remote server). Log in with:
-
-- **Email:** `admin@example.com` (or whatever you set as `ADMIN_EMAIL` in `.env`)
-- **Password:** the one printed in the terminal in Step 6
-
-### Step 8 — Change the admin password
-
-Go to **Settings → My Account** and set a new password immediately.
-
-That's it — the app is running with an empty inventory (no demo IPs/clients), just the 8
-default blacklists. Keep the terminal window open (or move on to [running it as a
-background service](#4-running-permanently-systemd) so it survives closing the terminal /
-server reboots).
-
----
-
-## 3. Setting things up
-
-### Add IPs or domains to monitor
-
-Use the **Monitored IPs** / **Domains** pages in the UI. You can add a single IP, a CIDR
-block (e.g. `203.0.113.0/24`), an IP range (e.g. `203.0.113.1-203.0.113.50`), or import a
-CSV file. Large CIDR blocks are capped by `MAX_CIDR_EXPANSION` in `.env` (default: 1024
-addresses, i.e. a `/22`) as a safety net against accidentally importing something like a
-`/8`.
-
-### Spamhaus DQS key (required for Spamhaus ZEN/DBL)
-
-Spamhaus ZEN and Spamhaus DBL require a free DQS (Data Query Service) key to work — without
-it, those two blacklists will show a resolution error instead of a result (this is safe: it
-just means "not checked", never a false positive). Get a key at
-[spamhaus.org](https://www.spamhaus.org/) and set it under **Settings → Spamhaus DQS**, or
-per individual blacklist.
-
-### Email / Pushover notifications
-
-Under **Settings**, configure SMTP (for email alerts) and/or a Pushover application token.
-Then create at least one **Alert Rule** (severity, blacklist, client, or group conditions +
-which channel to notify) so the app knows when and where to send alerts.
-
-### Dedicated DNS resolver (recommended for real use)
-
-Spamhaus, SORBS, and other lists block or degrade queries coming from public DNS resolvers
-(8.8.8.8, 1.1.1.1) or from resolvers that get high query volume. If you're monitoring more
-than a handful of IPs, set `DNS_RESOLVERS` in `.env` to point at a dedicated resolver (e.g.
-a local [Unbound](https://nlnetlabs.nl/projects/unbound/about/) instance — one is already
-wired up in `docker-compose.yml`), never at a shared public resolver.
-
----
-
-## 4. Running permanently (systemd)
-
-Running `uvicorn` directly in a terminal stops as soon as you close that terminal. For a
-server that should keep running, use `systemd`.
-
-### Step 1 — Create the service file
-
-```bash
-sudo nano /etc/systemd/system/blacklistmonitor.service
-```
-
-Paste this in, replacing `/path/to/blacklist-monitor` and `youruser` with your actual
-install path and the Linux user that should run it (using `root` works too, but a
-dedicated non-root user is safer):
-
-```ini
-[Unit]
-Description=Blacklist Monitor (FastAPI)
-After=network.target
-
-[Service]
-Type=simple
-User=youruser
-WorkingDirectory=/path/to/blacklist-monitor
-EnvironmentFile=/path/to/blacklist-monitor/.env
-ExecStart=/path/to/blacklist-monitor/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
-Restart=on-failure
-RestartSec=5
-StandardOutput=append:/var/log/blacklistmonitor.log
-StandardError=append:/var/log/blacklistmonitor.log
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Step 2 — Enable and start it
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now blacklistmonitor
-```
-
-### Step 3 — Check it's running
-
-```bash
-sudo systemctl status blacklistmonitor
-tail -f /var/log/blacklistmonitor.log
-```
-
-From now on, the app starts automatically on boot and restarts itself if it crashes. After
-editing code or `.env`, apply changes with:
-
-```bash
-sudo systemctl restart blacklistmonitor
-```
-
----
-
-## 5. Running with Docker Compose (Postgres + Unbound, alternative to systemd)
-
-If you have Docker installed and want the fuller production stack (Postgres instead of
-SQLite, plus a dedicated Unbound DNS resolver):
-
-```bash
-cp .env.example .env   # if you haven't already; then set SECRET_KEY/FERNET_KEY as in step 2.5 above
 docker compose up -d --build
 ```
 
-This starts three containers: `api` (the app + scheduler), `postgres`, and `unbound`. Check
-logs with `docker compose logs -f api`.
-
-The `api` image runs as an unprivileged user (not root), with `CAP_NET_RAW` granted only to
-the `ping` binary it shells out to for reachability checks.
-
----
-
-## 6. Environment variables reference
-
-All variables live in `.env` (copied from `.env.example`). Full list with defaults:
-
-| Variable | Default | What it does |
-|---|---|---|
-| `SECRET_KEY` | *(placeholder — change it)* | Signs JWT login tokens. |
-| `FERNET_KEY` | *(placeholder — change it)* | Encrypts secrets at rest (blacklist API keys, etc.). |
-| `DATABASE_URL` | `sqlite:///./blacklist_monitor.db` | SQLite by default; use a `postgresql+psycopg2://...` URL for Postgres. |
-| `ADMIN_EMAIL` | `admin@example.com` | Email of the admin account auto-created on first boot. |
-| `ADMIN_PASSWORD` | *(empty = random)* | Set this to choose the initial admin password; leave empty to get a random one printed in the log. |
-| `DNS_RESOLVERS` | *(empty = system resolver)* | Comma-separated resolver IPs; point at a dedicated resolver in production. |
-| `SPAMHAUS_DQS_KEY` | *(empty)* | Required for Spamhaus ZEN/DBL to work; can also be set per-blacklist in the UI. |
-| `DEFAULT_CHECK_INTERVAL_MINUTES` | `60` | How often each IP/domain is re-checked. |
-| `LISTED_IP_RECHECK_MINUTES` | `15` | Faster re-check interval for IPs currently listed. |
-| `MAX_CIDR_EXPANSION` | `1024` | Safety cap on addresses expanded from one CIDR/range import. |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_USE_TLS` / `SMTP_FROM` | *(empty)* | Outbound email for notifications. |
-| `PUSHOVER_APP_TOKEN` | *(empty)* | Pushover application token for push notifications. |
-| `CORS_ORIGINS` | `*` | Allowed origins for the API. |
-| `LANGUAGE` | `en` | UI language: `pt-BR`, `en`, `es`, `fr`, or `de`. Users can override this individually under Settings → My Account. |
-| `LOG_LEVEL` | `info` | Log verbosity: `off`, `error`, `info`, or `debug`. Changeable at runtime under Settings, no restart needed. |
-
----
-
-## Troubleshooting
-
-**"command not found: python3" / "command not found: git"**
-Install them first — see [Requirements](#1-requirements).
-
-**I lost the generated admin password**
-Stop the app, delete the admin user row from the database, and restart — a new random
-password will be generated and printed to the log:
+Check the containers:
 
 ```bash
-sqlite3 blacklist_monitor.db "DELETE FROM users;"
+docker compose ps
 ```
 
-(Or, if you're using Postgres, run the equivalent `DELETE FROM users;` against that
-database.) Then restart the app and check the terminal/log output again for the new
-password.
+View API logs:
 
-**"Address already in use" when starting uvicorn**
-Something is already listening on port 8000. Either stop that process, or start on a
-different port: `uvicorn app.main:app --reload --port 8001`.
-
-**Spamhaus ZEN / Spamhaus DBL always show a DNS error**
-You need a Spamhaus DQS key — see [Spamhaus DQS key](#spamhaus-dqs-key-required-for-spamhaus-zendbl)
-above. This is expected/safe behavior without a key, not a bug.
-
-**Notifications aren't being sent**
-Check three things, in order: (1) SMTP/Pushover credentials are filled in under Settings,
-(2) you have at least one enabled Alert Rule matching the severity/blacklist/client you
-expect, (3) the **Activity** page or the notification's `error` field for the specific
-failure reason.
-
-**`pip install` fails compiling `psycopg2-binary`**
-That package is only needed for Postgres. If you're using SQLite (the default), you can
-remove the `psycopg2-binary` line from `requirements.txt`, or install build tools first:
-`sudo apt install -y build-essential python3-dev libpq-dev`.
-
----
-
-## Project structure
-
-```
-app/
-  main.py              # FastAPI app, page routes, startup (seed + scheduler)
-  config.py            # Settings (env vars)
-  models.py            # SQLAlchemy ORM (the full data model)
-  schemas.py           # Pydantic (request/response)
-  security.py          # JWT, bcrypt, TOTP (2FA), RBAC (admin/operator/readonly)
-  crypto.py            # Fernet for keys/passwords at rest
-  seed.py              # First-boot setup: default blacklists + admin user (idempotent)
-  services/
-    cidr.py            # CIDR/range/IP expansion with a safety limit
-    ping.py            # ICMP pre-check (3 modes) with cache
-    dnsbl.py           # DNSBL query engine (octet/nibble reversal,
-                       # per-zone rate limiting, DQS, resolver error detection)
-    diagnostics.py     # rDNS/FCrDNS/SPF/DKIM/DMARC/port 25
-    notifications.py   # SMTP + Pushover + alert rule evaluation
-    checker.py          # Orchestrates ping + DNSBL + listing lifecycle + notification
-    scheduler.py        # APScheduler: general check + accelerated re-check
-  routers/              # One module per resource (auth, clients, ips, blacklists, ...)
-  templates/, static/   # Server-rendered UI (dark theme)
+```bash
+docker compose logs -f api
 ```
 
-## API
+Open the panel:
 
-All read routes used by the dashboard are public read-only within an authenticated
-session; create/update/delete requires a JWT token (`POST /api/auth/login`) with
-`operator` or `admin` role depending on the resource. Auto-generated interactive docs at
-`/docs` once the app is running.
+```text
+http://SERVER-IP:8000
+```
 
-## License
+Initial login:
 
-MIT — see [LICENSE](LICENSE).
+```text
+Email: admin@example.com
+Password: password displayed when the .env file was created
+```
+
+After the first login, change the administrator password.
+
+## 6. Check the Unbound container IP
+
+If you used the recommended `docker-compose.yml`, the Unbound IP should be:
+
+```text
+172.28.53.53
+```
+
+Confirm it with Docker:
+
+```bash
+UNBOUND_CONTAINER=$(docker compose ps -q unbound)
+docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$UNBOUND_CONTAINER"
+```
+
+You can also inspect the Docker network:
+
+```bash
+docker network inspect blacklist-monitor_bmnet | grep -A5 -B2 unbound
+```
+
+The output should show `172.28.53.53` assigned to the `unbound` container.
+
+## 7. Test DNS resolution from the API container
+
+Test whether the DNS library accepts the resolver:
+
+```bash
+docker compose exec -T api python - <<'PY'
+import dns.asyncresolver
+
+r = dns.asyncresolver.Resolver(configure=False)
+
+try:
+    r.nameservers = ["172.28.53.53"]
+    print("OK: resolver accepted:", r.nameservers)
+except Exception as e:
+    print("ERROR:", repr(e))
+PY
+```
+
+Test a normal DNS query:
+
+```bash
+docker compose exec -T api python - <<'PY'
+import dns.resolver
+
+r = dns.resolver.Resolver(configure=False)
+r.nameservers = ["172.28.53.53"]
+r.timeout = 5
+r.lifetime = 10
+
+try:
+    ans = r.resolve("example.com", "A")
+    print("OK:", [x.to_text() for x in ans])
+except Exception as e:
+    print("ERROR:", repr(e))
+PY
+```
+
+If this test works, the API container can resolve DNS through Unbound.
+
+## 8. Configure the resolver in the admin panel
+
+Important: settings saved in the admin panel can override `.env` and Docker Compose environment variables.
+
+After starting the application, open the admin panel and go to:
+
+```text
+Settings > DNS Resolver / Scheduler
+```
+
+If your UI is in Portuguese, the path is:
+
+```text
+Configurações > Resolver DNS / Agendador
+```
+
+In the field:
+
+```text
+DNS resolvers / Resolvers DNS
+```
+
+Set:
+
+```text
+172.28.53.53
+```
+
+Save the settings.
+
+If this field is set to `unbound`, empty, or a public resolver, IP checks may return **Error**.
+
+Recommended final flow:
+
+```text
+Unbound container: 172.28.53.53
+Docker Compose: DNS_RESOLVERS=172.28.53.53
+Admin panel: DNS resolvers = 172.28.53.53
+```
+
+## 9. Confirm the effective application settings
+
+Run:
+
+```bash
+docker compose exec -T api python - <<'PY'
+from app.database import SessionLocal
+from app.runtime_settings import effective_settings
+
+db = SessionLocal()
+s = effective_settings(db)
+
+print("Effective DNS_RESOLVERS =", s.dns_resolvers)
+print("SPAMHAUS_DQS_KEY configured?", bool(s.spamhaus_dqs_key))
+
+db.close()
+PY
+```
+
+Expected resolver result:
+
+```text
+Effective DNS_RESOLVERS = 172.28.53.53
+```
+
+If it shows `unbound`, `8.8.8.8`, `1.1.1.1`, or another value, update the admin panel setting in **Settings > DNS Resolver / Scheduler**.
+
+## 10. Spamhaus DQS key
+
+The **Spamhaus ZEN** and **Spamhaus DBL** blacklists require a Spamhaus DQS key.
+
+Without the key, these blacklists may return DNS resolution errors. This does not mean the IP is listed; it only means that the query could not be completed correctly.
+
+You can configure the key in two ways.
+
+### Option A: through `.env`
+
+```bash
+nano .env
+```
+
+Set:
+
+```env
+SPAMHAUS_DQS_KEY=your-dqs-key-here
+```
+
+Restart the API:
+
+```bash
+docker compose restart api
+```
+
+### Option B: through the admin panel
+
+Go to:
+
+```text
+Settings > Spamhaus DQS
+```
+
+Enter the DQS key and save.
+
+If you do not have a DQS key yet, temporarily disable the Spamhaus lists in the panel:
+
+```text
+Blacklists > Spamhaus ZEN > Disable
+Blacklists > Spamhaus DBL > Disable
+```
+
+## 11. Import IP addresses or blocks
+
+In the panel, go to:
+
+```text
+Monitored IPs > Add IP/Block
+```
+
+You can add:
+
+- Individual IP address, for example `203.0.113.10`.
+- CIDR block, for example `203.0.113.0/24`.
+- IP range.
+- CSV file.
+
+CIDR expansion is controlled by:
+
+```env
+MAX_CIDR_EXPANSION=1024
+```
+
+After importing, run:
+
+```text
+Check all
+```
+
+or:
+
+```text
+Check selected
+```
+
+## 12. IP status meanings
+
+Main statuses:
+
+| Status | Meaning |
+|---|---|
+| Clean | No enabled blacklist returned a listing. |
+| Listed | At least one enabled blacklist confirmed a listing. |
+| Error | One or more DNSBL queries failed. |
+| Not checked | The IP has not been checked yet or was skipped by a rule/pre-check. |
+
+Notes:
+
+- **Error** does not necessarily mean that the IP is listed.
+- **No response** on ping does not mean blacklist; it only means that the IP did not answer ICMP.
+- In large IP blocks, many addresses may not reply to ping. Configure the group to check all IPs when needed.
+
+## 13. Useful commands
+
+Show containers:
+
+```bash
+docker compose ps
+```
+
+View API logs:
+
+```bash
+docker compose logs -f api
+```
+
+View PostgreSQL logs:
+
+```bash
+docker compose logs -f postgres
+```
+
+View Unbound logs:
+
+```bash
+docker compose logs -f unbound
+```
+
+Restart the API:
+
+```bash
+docker compose restart api
+```
+
+Restart all services:
+
+```bash
+docker compose restart
+```
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+Start again:
+
+```bash
+docker compose up -d
+```
+
+Update the code:
+
+```bash
+cd /opt/blacklist-monitor
+git pull
+docker compose up -d --build
+```
+
+Warning: do not run `docker compose down -v` in production, because it removes the PostgreSQL volume and deletes the database data.
+
+## 14. Backup
+
+Simple PostgreSQL backup:
+
+```bash
+mkdir -p /opt/backups/blacklist-monitor
+
+docker compose exec -T postgres pg_dump -U blacklist blacklist_monitor > /opt/backups/blacklist-monitor/blacklist_monitor_$(date +%F_%H%M).sql
+```
+
+Restore a backup:
+
+```bash
+cat /opt/backups/blacklist-monitor/FILE.sql | docker compose exec -T postgres psql -U blacklist blacklist_monitor
+```
+
+## 15. Troubleshooting
+
+### IP status remains Error
+
+First check the effective resolver:
+
+```bash
+docker compose exec -T api python - <<'PY'
+from app.database import SessionLocal
+from app.runtime_settings import effective_settings
+
+db = SessionLocal()
+s = effective_settings(db)
+print("Effective DNS_RESOLVERS =", s.dns_resolvers)
+print("SPAMHAUS_DQS_KEY configured?", bool(s.spamhaus_dqs_key))
+db.close()
+PY
+```
+
+If the resolver is not `172.28.53.53`, update it in the admin panel:
+
+```text
+Settings > DNS Resolver / Scheduler
+```
+
+### `DNS_RESOLVERS = unbound`
+
+This is incorrect for the application.
+
+The container may be named `unbound`, but the application must receive the **resolver IP address**, for example:
+
+```text
+172.28.53.53
+```
+
+Fix it in `docker-compose.yml` and in the admin panel.
+
+### Error when running heredoc commands
+
+If you see:
+
+```text
+cannot attach stdin to a TTY-enabled container because stdin is not a terminal
+```
+
+Use `-T`:
+
+```bash
+docker compose exec -T api python - <<'PY'
+print("ok")
+PY
+```
+
+### Spamhaus ZEN/DBL always returns errors
+
+Configure the Spamhaus DQS key or temporarily disable the Spamhaus ZEN/DBL blacklists.
+
+### Port 8000 is not accessible
+
+Check whether the container is running:
+
+```bash
+docker compose ps
+```
+
+Check logs:
+
+```bash
+docker compose logs --tail=200 api
+```
+
+If you use a firewall, allow the port:
+
+```bash
+ufw allow 8000/tcp
+```
+
+Or restrict access to your public IP:
+
+```bash
+ufw allow from YOUR_PUBLIC_IP to any port 8000 proto tcp
+```
+
+### Show detailed error per blacklist
+
+Replace the IP below with one of your monitored IP addresses:
+
+```bash
+docker compose exec -T api python - <<'PY'
+import asyncio
+from app.database import SessionLocal
+from app.models import Blacklist, BLType
+from app.runtime_settings import effective_settings
+from app.services.dnsbl import check_ip_against_blacklists
+
+ip = "203.0.113.10"
+
+db = SessionLocal()
+settings = effective_settings(db)
+blacklists = db.query(Blacklist).filter(
+    Blacklist.enabled == True,
+    Blacklist.type == BLType.ipv4
+).all()
+
+async def main():
+    results = await check_ip_against_blacklists(ip, blacklists, settings=settings, concurrency=1)
+
+    for bl in blacklists:
+        r = results.get(bl.id)
+        print(f"{bl.id} | {bl.name}")
+        print(f"  listed: {r.listed if r else None}")
+        print(f"  codes: {r.codes if r else None}")
+        print(f"  error: {r.error if r else None}")
+        print()
+
+asyncio.run(main())
+db.close()
+PY
+```
+
+This test shows exactly which blacklist is returning an error.
+
+## 16. Local/development installation with Python and SQLite
+
+For a simple local development setup:
+
+```bash
+cd /opt
+git clone https://github.com/JG-ServerSP/blacklist-monitor.git
+cd blacklist-monitor
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Generate keys:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Edit `.env` and configure `SECRET_KEY` and `FERNET_KEY`.
+
+Start the app:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Open:
+
+```text
+http://localhost:8000
+```
+
+For production, prefer Docker Compose with PostgreSQL and Unbound.
+
+## 17. Recommended security practices
+
+- Change the administrator password after the first login.
+- Use a strong password.
+- Enable 2FA for administrative users.
+- Do not expose the panel publicly without a firewall, reverse proxy, or access control.
+- Back up PostgreSQL regularly.
+- Use a dedicated Unbound resolver for DNSBL queries.
+- Do not use public resolvers for high-volume DNSBL checks.
+- Configure the Spamhaus DQS key if you want to use Spamhaus ZEN/DBL.
