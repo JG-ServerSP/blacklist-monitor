@@ -92,18 +92,18 @@ def ensure_admin_user(db: Session) -> None:
 
     password = settings.admin_password or secrets.token_urlsafe(12)
     admin = User(
-        email=settings.admin_email, name="Administrador", role=Role.admin,
+        email=settings.admin_email, name="Administrator", role=Role.admin,
         password_hash=hash_password(password),
     )
     db.add(admin)
     db.commit()
 
     if settings.admin_password:
-        logger.warning("Usuário admin criado: %s (senha definida via ADMIN_PASSWORD)", settings.admin_email)
+        logger.warning("Admin user created: %s (password set via ADMIN_PASSWORD)", settings.admin_email)
     else:
         logger.warning(
-            "=== Usuário admin criado: %s / senha gerada: %s === "
-            "Guarde esta senha agora — ela não será exibida novamente. Troque-a após o primeiro login.",
+            "=== Admin user created: %s / generated password: %s === "
+            "Save this password now — it will not be shown again. Change it after your first login.",
             settings.admin_email, password,
         )
 

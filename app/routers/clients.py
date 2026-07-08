@@ -27,7 +27,7 @@ def create_client(payload: ClientCreate, db: Session = Depends(get_db), user: Us
 def get_client(client_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     client = db.query(Client).get(client_id)
     if not client:
-        raise HTTPException(404, "Cliente não encontrado")
+        raise HTTPException(404, "Client not found")
     return client
 
 
@@ -35,7 +35,7 @@ def get_client(client_id: int, db: Session = Depends(get_db), user: User = Depen
 def update_client(client_id: int, payload: ClientCreate, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     client = db.query(Client).get(client_id)
     if not client:
-        raise HTTPException(404, "Cliente não encontrado")
+        raise HTTPException(404, "Client not found")
     for k, v in payload.model_dump().items():
         setattr(client, k, v)
     db.commit()
@@ -47,7 +47,7 @@ def update_client(client_id: int, payload: ClientCreate, db: Session = Depends(g
 def delete_client(client_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     client = db.query(Client).get(client_id)
     if not client:
-        raise HTTPException(404, "Cliente não encontrado")
+        raise HTTPException(404, "Client not found")
     db.delete(client)
     db.commit()
     return {"ok": True}

@@ -16,11 +16,11 @@ SUPPORTED_LANGUAGES = {"pt-BR", "en", "es", "fr", "de"}
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not user.is_active or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     if user.totp_enabled:
         if not payload.totp_code or not verify_totp(user.totp_secret, payload.totp_code):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código 2FA inválido ou ausente")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing 2FA code")
 
     token = create_access_token(user.email)
     db.add(ActivityLog(user_id=user.id, action="login", entity="user", payload={"email": user.email}))
@@ -45,9 +45,9 @@ def change_password(
     user: User = Depends(get_current_user),
 ):
     if not verify_password(payload.current_password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Senha atual incorreta")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect")
     if len(payload.new_password) < 8:
-        raise HTTPException(status_code=400, detail="A nova senha deve ter ao menos 8 caracteres")
+        raise HTTPException(status_code=400, detail="The new password must be at least 8 characters long")
     user.password_hash = hash_password(payload.new_password)
     db.add(ActivityLog(user_id=user.id, action="password_changed", entity="user", payload={"email": user.email}))
     db.commit()
@@ -74,7 +74,7 @@ def update_my_language(
     user: User = Depends(get_current_user),
 ):
     if payload.language and payload.language not in SUPPORTED_LANGUAGES:
-        raise HTTPException(status_code=400, detail="Idioma não suportado")
+        raise HTTPException(status_code=400, detail="Unsupported language")
     user.language = payload.language or None
     db.commit()
     db.refresh(user)

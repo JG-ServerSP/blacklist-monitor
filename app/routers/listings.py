@@ -32,7 +32,7 @@ def list_listings(
 def request_delist(listing_id: int, payload: DelistRequest, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     listing = db.query(Listing).get(listing_id)
     if not listing:
-        raise HTTPException(404, "Listagem não encontrada")
+        raise HTTPException(404, "Listing not found")
     listing.status = ListingStatus.delist_requested
     listing.delist_requested_by = payload.requested_by
     listing.delist_requested_at = datetime.utcnow()

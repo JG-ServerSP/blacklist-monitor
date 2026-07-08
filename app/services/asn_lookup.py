@@ -38,7 +38,7 @@ async def lookup_asn(ip: str, settings: Settings | None = None) -> dict:
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
-        result["error"] = "IP inválido"
+        result["error"] = "Invalid IP"
         return result
 
     resolver = _resolver(settings)

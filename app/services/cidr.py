@@ -20,18 +20,18 @@ def parse_entry(entry: str, max_expansion: int) -> ParsedEntry:
     """
     entry = entry.strip()
     if not entry:
-        raise CIDRExpansionError("Entrada vazia")
+        raise CIDRExpansionError("Empty input")
 
     if "/" in entry:
         try:
             network = ipaddress.ip_network(entry, strict=False)
         except ValueError as exc:
-            raise CIDRExpansionError(f"CIDR inválido: {entry}") from exc
+            raise CIDRExpansionError(f"Invalid CIDR: {entry}") from exc
         count = network.num_addresses
         if count > max_expansion:
             raise CIDRExpansionError(
-                f"Bloco {entry} tem {count} endereços, acima do limite de segurança "
-                f"de {max_expansion}. Ajuste o limite em Configurações se isso for intencional."
+                f"Block {entry} has {count} addresses, above the safety limit "
+                f"of {max_expansion}. Adjust the limit in Settings if this is intentional."
             )
         addresses = [str(ip) for ip in network.hosts()] or [str(network.network_address)]
         return ParsedEntry(addresses=addresses, cidr_label=str(network))
@@ -48,13 +48,13 @@ def parse_entry(entry: str, max_expansion: int) -> ParsedEntry:
                 parts[-1] = end_s
                 end = ipaddress.ip_address(".".join(parts))
         except ValueError as exc:
-            raise CIDRExpansionError(f"Range inválido: {entry}") from exc
+            raise CIDRExpansionError(f"Invalid range: {entry}") from exc
         if int(end) < int(start):
-            raise CIDRExpansionError("Fim do range menor que o início")
+            raise CIDRExpansionError("Range end is smaller than the start")
         count = int(end) - int(start) + 1
         if count > max_expansion:
             raise CIDRExpansionError(
-                f"Range {entry} tem {count} endereços, acima do limite de segurança de {max_expansion}."
+                f"Range {entry} has {count} addresses, above the safety limit of {max_expansion}."
             )
         addresses = [str(ipaddress.ip_address(i)) for i in range(int(start), int(end) + 1)]
         return ParsedEntry(addresses=addresses, cidr_label=entry)
@@ -62,5 +62,5 @@ def parse_entry(entry: str, max_expansion: int) -> ParsedEntry:
     try:
         ip = ipaddress.ip_address(entry)
     except ValueError as exc:
-        raise CIDRExpansionError(f"IP inválido: {entry}") from exc
+        raise CIDRExpansionError(f"Invalid IP: {entry}") from exc
     return ParsedEntry(addresses=[str(ip)], cidr_label=str(ip))

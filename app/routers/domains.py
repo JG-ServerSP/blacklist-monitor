@@ -18,7 +18,7 @@ def list_domains(db: Session = Depends(get_db), user: User = Depends(get_current
 @router.post("", response_model=DomainOut)
 def create_domain(payload: DomainCreate, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     if db.query(Domain).filter(Domain.domain == payload.domain).first():
-        raise HTTPException(400, "Domínio já cadastrado")
+        raise HTTPException(400, "Domain already registered")
     row = Domain(**payload.model_dump())
     db.add(row)
     db.commit()
@@ -35,7 +35,7 @@ def get_domain_listings(domain_id: int, db: Session = Depends(get_db), user: Use
 async def force_check(domain_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     row = db.query(Domain).get(domain_id)
     if not row:
-        raise HTTPException(404, "Domínio não encontrado")
+        raise HTTPException(404, "Domain not found")
     await check_single_domain(db, row)
     db.refresh(row)
     return row
@@ -45,7 +45,7 @@ async def force_check(domain_id: int, db: Session = Depends(get_db), user: User 
 def delete_domain(domain_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     row = db.query(Domain).get(domain_id)
     if not row:
-        raise HTTPException(404, "Domínio não encontrado")
+        raise HTTPException(404, "Domain not found")
     db.delete(row)
     db.commit()
     return {"ok": True}

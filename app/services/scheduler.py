@@ -40,7 +40,7 @@ async def job_check_due_ips():
             or (now - r.last_checked_at) >= timedelta(minutes=_effective_interval_minutes(r, default_minutes))
         ]
         if due:
-            logger.info("Tick de verificação: %d de %d IPs habilitados estão devidos", len(due), len(rows))
+            logger.info("Check tick: %d of %d enabled IPs are due", len(due), len(rows))
             await run_check_batch(db, due)
     finally:
         db.close()
@@ -53,7 +53,7 @@ async def job_recheck_listed_ips():
             MonitoredIP.enabled == True, MonitoredIP.current_status == IPStatus.listed  # noqa: E712
         ).all()
         if rows:
-            logger.info("Reverificação acelerada de IPs listados: %d IPs", len(rows))
+            logger.info("Accelerated re-check of listed IPs: %d IPs", len(rows))
             await run_check_batch(db, rows)
     finally:
         db.close()
@@ -84,7 +84,7 @@ def start_scheduler():
     )
     scheduler.start()
     logger.info(
-        "Scheduler iniciado (tick a cada %dmin respeitando intervalo por IP/grupo/global - padrão %dmin; "
-        "reverificação de listados a cada %dmin)",
+        "Scheduler started (tick every %dmin, respecting per-IP/group/global interval - default %dmin; "
+        "re-check of listed IPs every %dmin)",
         TICK_MINUTES, default_minutes, recheck_minutes,
     )

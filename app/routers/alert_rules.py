@@ -27,7 +27,7 @@ def create_rule(payload: AlertRuleCreate, db: Session = Depends(get_db), user: U
 def update_rule(rule_id: int, payload: AlertRuleCreate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     rule = db.query(AlertRule).get(rule_id)
     if not rule:
-        raise HTTPException(404, "Regra não encontrada")
+        raise HTTPException(404, "Rule not found")
     for k, v in payload.model_dump().items():
         setattr(rule, k, v)
     db.commit()
@@ -39,7 +39,7 @@ def update_rule(rule_id: int, payload: AlertRuleCreate, db: Session = Depends(ge
 def delete_rule(rule_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     rule = db.query(AlertRule).get(rule_id)
     if not rule:
-        raise HTTPException(404, "Regra não encontrada")
+        raise HTTPException(404, "Rule not found")
     db.delete(rule)
     db.commit()
     return {"ok": True}

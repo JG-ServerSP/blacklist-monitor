@@ -1,5 +1,5 @@
 """Merges the env-based Settings with admin-editable overrides persisted in
-the `settings` table (SettingKV), so changes made in the Configurações UI
+the `settings` table (SettingKV), so changes made in the Settings UI
 take effect immediately without a restart.
 """
 from sqlalchemy.orm import Session

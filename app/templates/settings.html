@@ -48,10 +48,10 @@
     <div class="form-field" style="margin-bottom:10px;">
       <label data-i18n="settings.logLevel">Nível de Log</label>
       <select id="s-log-level">
-        <option value="nada" data-i18n="settings.logLevelNone">Nada (desliga o log)</option>
-        <option value="erro" data-i18n="settings.logLevelError">Erro</option>
+        <option value="off" data-i18n="settings.logLevelNone">Nada (desliga o log)</option>
+        <option value="error" data-i18n="settings.logLevelError">Erro</option>
         <option value="info" selected data-i18n="settings.logLevelInfo">Info (padrão)</option>
-        <option value="log" data-i18n="settings.logLevelVerbose">Log (verboso/debug)</option>
+        <option value="debug" data-i18n="settings.logLevelVerbose">Log (verboso/debug)</option>
       </select>
     </div>
     <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;" data-i18n-html="settings.logLevelHint">Controla a verbosidade do log do serviço (tela Logs e <code>/var/log/blacklistmonitor.log</code>). Aplicado imediatamente, sem reiniciar.</p>

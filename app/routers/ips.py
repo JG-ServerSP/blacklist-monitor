@@ -178,7 +178,7 @@ async def import_csv(
 async def bulk_check(payload: BulkIdsRequest, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     rows = db.query(MonitoredIP).filter(MonitoredIP.id.in_(payload.ids)).all()
     if not rows:
-        raise HTTPException(404, "Nenhum IP encontrado para os IDs informados")
+        raise HTTPException(404, "No IP found for the given IDs")
     run = await run_check_batch(db, rows)
     return {"checked": len(rows), "errors": run.errors}
 
@@ -194,7 +194,7 @@ async def check_all(
 ):
     rows = _filtered_ips_query(db, status_filter, client_id, group_id, q).all()
     if not rows:
-        raise HTTPException(404, "Nenhum IP encontrado para o filtro informado")
+        raise HTTPException(404, "No IP found for the given filter")
     run = await run_check_batch(db, rows)
     return {"checked": len(rows), "errors": run.errors}
 
@@ -203,7 +203,7 @@ async def check_all(
 def bulk_update(payload: BulkIPUpdateRequest, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     rows = db.query(MonitoredIP).filter(MonitoredIP.id.in_(payload.ids)).all()
     if not rows:
-        raise HTTPException(404, "Nenhum IP encontrado para os IDs informados")
+        raise HTTPException(404, "No IP found for the given IDs")
     data = payload.model_dump(exclude_unset=True, exclude={"ids"})
     for row in rows:
         for k, v in data.items():
@@ -227,7 +227,7 @@ def bulk_delete(payload: BulkIdsRequest, db: Session = Depends(get_db), user: Us
 def get_ip(ip_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     row = db.query(MonitoredIP).get(ip_id)
     if not row:
-        raise HTTPException(404, "IP não encontrado")
+        raise HTTPException(404, "IP not found")
     return row
 
 
@@ -240,7 +240,7 @@ def get_ip_listings(ip_id: int, db: Session = Depends(get_db), user: User = Depe
 def update_ip(ip_id: int, payload: MonitoredIPUpdate, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     row = db.query(MonitoredIP).get(ip_id)
     if not row:
-        raise HTTPException(404, "IP não encontrado")
+        raise HTTPException(404, "IP not found")
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(row, k, v)
     db.commit()
@@ -252,7 +252,7 @@ def update_ip(ip_id: int, payload: MonitoredIPUpdate, db: Session = Depends(get_
 async def force_check(ip_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     row = db.query(MonitoredIP).get(ip_id)
     if not row:
-        raise HTTPException(404, "IP não encontrado")
+        raise HTTPException(404, "IP not found")
     await check_single_ip(db, row, force=True)
     db.refresh(row)
     return row
@@ -262,7 +262,7 @@ async def force_check(ip_id: int, db: Session = Depends(get_db), user: User = De
 def delete_ip(ip_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     row = db.query(MonitoredIP).get(ip_id)
     if not row:
-        raise HTTPException(404, "IP não encontrado")
+        raise HTTPException(404, "IP not found")
     db.delete(row)
     db.commit()
     return {"ok": True}

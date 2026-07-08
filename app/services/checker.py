@@ -185,9 +185,9 @@ async def check_single_domain(db: Session, domain_row: Domain) -> None:
     db.commit()
 
     if domain_row.current_status == IPStatus.error and previous_status != IPStatus.error:
-        dispatch_check_error(db, domain_row.domain, "domínio", error_details, client_id=domain_row.client_id)
+        dispatch_check_error(db, domain_row.domain, "domain", error_details, client_id=domain_row.client_id)
     elif previous_status == IPStatus.error and domain_row.current_status != IPStatus.error:
-        dispatch_check_error(db, domain_row.domain, "domínio", [], client_id=domain_row.client_id, resolved=True)
+        dispatch_check_error(db, domain_row.domain, "domain", [], client_id=domain_row.client_id, resolved=True)
 
 
 async def run_check_batch(db: Session, ip_rows: list[MonitoredIP], concurrency: int = 20) -> CheckRun:

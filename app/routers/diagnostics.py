@@ -19,7 +19,7 @@ async def asn_lookup(ip: str, db: Session = Depends(get_db), user: User = Depend
     try:
         ipaddress.ip_address(ip)
     except ValueError:
-        raise HTTPException(400, "IP inválido")
+        raise HTTPException(400, "Invalid IP")
     return await lookup_asn(ip, settings=effective_settings(db))
 
 
@@ -33,7 +33,7 @@ async def ip_lookup(ip: str, db: Session = Depends(get_db), user: User = Depends
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
-        raise HTTPException(400, "IP inválido")
+        raise HTTPException(400, "Invalid IP")
 
     settings = effective_settings(db)
     asn_info = await lookup_asn(ip, settings=settings)
@@ -62,7 +62,7 @@ async def diagnose_by_ip(ip: str, db: Session = Depends(get_db), user: User = De
     try:
         ipaddress.ip_address(ip)
     except ValueError:
-        raise HTTPException(400, "IP inválido")
+        raise HTTPException(400, "Invalid IP")
     return await run_full_diagnostics(ip, settings=effective_settings(db))
 
 
@@ -70,5 +70,5 @@ async def diagnose_by_ip(ip: str, db: Session = Depends(get_db), user: User = De
 async def diagnose_ip(ip_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     row = db.query(MonitoredIP).get(ip_id)
     if not row:
-        raise HTTPException(404, "IP não encontrado")
+        raise HTTPException(404, "IP not found")
     return await run_full_diagnostics(row.ip, settings=effective_settings(db))

@@ -38,9 +38,9 @@ async def check_fcrdns(ip: str, hostname: str | None, settings: Settings) -> dic
         forward_ips = {str(r) for r in a_answer}
         if ip in forward_ips:
             return {"ok": True, "detail": f"{hostname} resolve para {ip}"}
-        return {"ok": False, "detail": f"{hostname} não resolve para {ip} (resolve para {', '.join(forward_ips)})"}
+        return {"ok": False, "detail": f"{hostname} does not resolve to {ip} (resolves to {', '.join(forward_ips)})"}
     except Exception as exc:
-        return {"ok": False, "detail": f"Hostname não resolve A/AAAA ({exc.__class__.__name__})"}
+        return {"ok": False, "detail": f"Hostname does not resolve A/AAAA ({exc.__class__.__name__})"}
 
 
 async def check_spf(domain: str, settings: Settings) -> dict:
@@ -65,7 +65,7 @@ async def check_dkim(domain: str, settings: Settings, selector: str = "default")
             txt = r.to_text().strip('"')
             if "v=dkim1" in txt.lower() or "p=" in txt.lower():
                 return {"ok": True, "detail": f"{name}: {txt[:80]}"}
-        return {"ok": False, "detail": f"Nenhum registro DKIM válido em {name}"}
+        return {"ok": False, "detail": f"No valid DKIM record at {name}"}
     except Exception:
         return {"ok": False, "detail": f"Sem registro DKIM em seletor '{selector}' (verifique o seletor correto)"}
 
@@ -108,11 +108,11 @@ async def check_port25(ip: str, timeout: float = 3.0) -> dict:
     if banner.startswith(b"220"):
         return {
             "ok": False,
-            "detail": f"Porta 25 aberta, respondendo como SMTP (possível open relay / VPS comprometida): {banner.decode(errors='replace').strip()}",
+            "detail": f"Port 25 open, responding as SMTP (possible open relay / compromised VPS): {banner.decode(errors='replace').strip()}",
         }
     return {
         "ok": True,
-        "detail": "Conexão TCP aceita na porta 25, mas sem handshake SMTP (provável firewall de saída interceptando a porta, não um servidor SMTP real)",
+        "detail": "TCP connection accepted on port 25, but no SMTP handshake (likely an outbound firewall intercepting the port, not a real SMTP server)",
     }
 
 
@@ -133,6 +133,6 @@ async def run_full_diagnostics(ip: str, domain: str | None = None, settings: Set
         )
         result.update({"spf": spf, "dkim": dkim, "dmarc": dmarc})
     else:
-        na = {"ok": None, "detail": "Sem domínio associado"}
+        na = {"ok": None, "detail": "No domain associated"}
         result.update({"spf": na, "dkim": na, "dmarc": na})
     return result

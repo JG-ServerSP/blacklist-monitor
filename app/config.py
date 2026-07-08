@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # First-boot admin account. If admin_password is empty, a random one is
     # generated and logged once at startup (see app/seed.py).
-    admin_email: str = "admin@seudominio.com"
+    admin_email: str = "admin@example.com"
     admin_password: str = ""
 
     # DNS resolution
@@ -49,13 +49,13 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
 
     # Observability
-    # log_level: "nada" (desliga), "erro", "info" (padrão) ou "log" (debug/verboso).
+    # log_level: "off", "error", "info" (default), or "debug" (verbose).
     log_level: str = "info"
     log_file_path: str = "/var/log/blacklistmonitor.log"
     timezone: str = "UTC"
 
     # UI language. One of: pt-BR, en, es, fr, de.
-    language: str = "pt-BR"
+    language: str = "en"
 
 
 @lru_cache

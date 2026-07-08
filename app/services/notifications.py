@@ -18,7 +18,7 @@ PUSHOVER_PRIORITY = {Severity.critical: 2, Severity.high: 1, Severity.medium: 0,
 
 def send_email(settings: Settings, to: str, subject: str, body_html: str) -> tuple[bool, str | None]:
     if not settings.smtp_host:
-        return False, "SMTP não configurado"
+        return False, "SMTP not configured"
     try:
         msg = MIMEText(body_html, "html", "utf-8")
         msg["Subject"] = subject
@@ -37,7 +37,7 @@ def send_email(settings: Settings, to: str, subject: str, body_html: str) -> tup
 
 def send_pushover(settings: Settings, user_key: str, title: str, message: str, priority: int = 0) -> tuple[bool, str | None]:
     if not settings.pushover_app_token:
-        return False, "Pushover não configurado (app token ausente)"
+        return False, "Pushover not configured (missing app token)"
     try:
         payload = {
             "token": settings.pushover_app_token,
@@ -59,40 +59,40 @@ def send_pushover(settings: Settings, user_key: str, title: str, message: str, p
 
 def render_listing_email(ip: str, blacklist_name: str, severity: str, txt_reason: str | None, resolved: bool) -> str:
     if resolved:
-        heading = f"IP removido da blacklist {blacklist_name}"
+        heading = f"IP removed from blacklist {blacklist_name}"
         color = "#22c55e"
     else:
-        heading = f"IP listado na blacklist {blacklist_name}"
+        heading = f"IP listed on blacklist {blacklist_name}"
         color = "#ef4444"
     return f"""
     <div style="font-family:Inter,Arial,sans-serif;background:#0d1220;color:#e5e7eb;padding:24px;border-radius:8px;">
       <h2 style="color:{color};margin-top:0;">{heading}</h2>
       <p><b>IP:</b> {ip}</p>
-      <p><b>Severidade:</b> {severity}</p>
-      {f'<p><b>Motivo:</b> {txt_reason}</p>' if txt_reason else ''}
-      <p style="color:#9ca3af;font-size:12px;">Blacklist Monitor — notificação automática</p>
+      <p><b>Severity:</b> {severity}</p>
+      {f'<p><b>Reason:</b> {txt_reason}</p>' if txt_reason else ''}
+      <p style="color:#9ca3af;font-size:12px;">Blacklist Monitor — automatic notification</p>
     </div>
     """
 
 
 def render_check_error_email(target: str, kind: str, error_details: list[tuple[str, str]], resolved: bool) -> str:
     if resolved:
-        heading = f"Verificação de {kind} normalizada"
+        heading = f"{kind.capitalize()} check back to normal"
         color = "#22c55e"
-        body = f"<p>As consultas de blacklist para <b>{target}</b> voltaram a funcionar normalmente.</p>"
+        body = f"<p>Blacklist queries for <b>{target}</b> are working normally again.</p>"
     else:
-        heading = f"Falha na verificação de {kind}"
+        heading = f"{kind.capitalize()} check failure"
         color = "#f59e0b"
         items = "".join(f"<li><b>{name}:</b> {err}</li>" for name, err in error_details)
         body = (
-            f"<p>Não foi possível concluir a verificação de <b>{target}</b> em uma ou mais blacklists:</p>"
+            f"<p>Could not complete the check for <b>{target}</b> against one or more blacklists:</p>"
             f"<ul>{items}</ul>"
         )
     return f"""
     <div style="font-family:Inter,Arial,sans-serif;background:#0d1220;color:#e5e7eb;padding:24px;border-radius:8px;">
       <h2 style="color:{color};margin-top:0;">{heading}</h2>
       {body}
-      <p style="color:#9ca3af;font-size:12px;">Blacklist Monitor — notificação automática</p>
+      <p style="color:#9ca3af;font-size:12px;">Blacklist Monitor — automatic notification</p>
     </div>
     """
 
@@ -115,7 +115,7 @@ def dispatch_check_error(
 
     settings = effective_settings(db)
     rules = db.query(AlertRule).filter(AlertRule.enabled == True).all()  # noqa: E712
-    subject_prefix = "Verificação normalizada" if resolved else "Falha na verificação"
+    subject_prefix = "Check back to normal" if resolved else "Check failure"
 
     for rule in rules:
         cond = rule.conditions or {}
@@ -137,9 +137,9 @@ def dispatch_check_error(
             elif ctype == "pushover":
                 user_key = channel.get("user_key")
                 message = (
-                    "voltou ao normal"
+                    "back to normal"
                     if resolved
-                    else "; ".join(f"{n}: {e}" for n, e in error_details) or "erro na verificação"
+                    else "; ".join(f"{n}: {e}" for n, e in error_details) or "check error"
                 )
                 ok, error = send_pushover(settings, user_key, f"{subject_prefix} — {kind} {target}", message, priority=1 if not resolved else 0)
                 status_ = "sent" if ok else "failed"
@@ -155,7 +155,7 @@ def dispatch_check_error(
                     db.add(Notification(rule_id=rule.id, channel="email", recipient=to,
                                          status="sent" if ok else "failed", error=err))
                 if target_user.pushover_user_key:
-                    message = "voltou ao normal" if resolved else "erro na verificação"
+                    message = "back to normal" if resolved else "check error"
                     ok, err = send_pushover(settings, target_user.pushover_user_key, f"{subject_prefix} — {kind} {target}",
                                              message, priority=1 if not resolved else 0)
                     db.add(Notification(rule_id=rule.id, channel="pushover", recipient=target_user.pushover_user_key,
@@ -209,8 +209,8 @@ def dispatch_for_listing(db: Session, listing: Listing, resolved: bool = False) 
             elif ctype == "pushover":
                 user_key = channel.get("user_key")
                 priority = PUSHOVER_PRIORITY.get(listing.severity, 0)
-                title = f"{'Removido de' if resolved else 'Listado em'} {blacklist.name}"
-                message = f"IP {ip.ip if ip else '?'} - severidade {listing.severity.value}"
+                title = f"{'Removed from' if resolved else 'Listed on'} {blacklist.name}"
+                message = f"IP {ip.ip if ip else '?'} - severity {listing.severity.value}"
                 ok, error = send_pushover(settings, user_key, title, message, priority)
                 status_ = "sent" if ok else "failed"
                 recipient = user_key
@@ -226,8 +226,8 @@ def dispatch_for_listing(db: Session, listing: Listing, resolved: bool = False) 
                                          status="sent" if ok else "failed", error=err))
                 if target.pushover_user_key:
                     priority = PUSHOVER_PRIORITY.get(listing.severity, 0)
-                    title = f"{'Removido de' if resolved else 'Listado em'} {blacklist.name}"
-                    message = f"IP {ip.ip if ip else '?'} - severidade {listing.severity.value}"
+                    title = f"{'Removed from' if resolved else 'Listed on'} {blacklist.name}"
+                    message = f"IP {ip.ip if ip else '?'} - severity {listing.severity.value}"
                     ok, err = send_pushover(settings, target.pushover_user_key, title, message, priority)
                     db.add(Notification(listing_id=listing.id, rule_id=rule.id, channel="pushover", recipient=target.pushover_user_key,
                                          status="sent" if ok else "failed", error=err))

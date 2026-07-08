@@ -47,7 +47,7 @@ def decode_token(token: str) -> Optional[str]:
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-    unauthorized = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Não autenticado")
+    unauthorized = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     if not token:
         raise unauthorized
     email = decode_token(token)
@@ -62,7 +62,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def require_role(*roles: Role):
     def dependency(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissão insuficiente")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permission")
         return user
     return dependency
 

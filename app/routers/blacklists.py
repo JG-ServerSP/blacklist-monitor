@@ -43,7 +43,7 @@ def create_blacklist(payload: BlacklistCreate, db: Session = Depends(get_db), us
 def update_blacklist(bl_id: int, payload: BlacklistUpdate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     bl = db.query(Blacklist).get(bl_id)
     if not bl:
-        raise HTTPException(404, "Blacklist não encontrada")
+        raise HTTPException(404, "Blacklist not found")
     data = payload.model_dump(exclude_unset=True, exclude={"api_key"})
     for k, v in data.items():
         setattr(bl, k, v)
@@ -58,7 +58,7 @@ def update_blacklist(bl_id: int, payload: BlacklistUpdate, db: Session = Depends
 def delete_blacklist(bl_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     bl = db.query(Blacklist).get(bl_id)
     if not bl:
-        raise HTTPException(404, "Blacklist não encontrada")
+        raise HTTPException(404, "Blacklist not found")
     db.delete(bl)
     db.commit()
     return {"ok": True}
@@ -68,7 +68,7 @@ def delete_blacklist(bl_id: int, db: Session = Depends(get_db), user: User = Dep
 def toggle_blacklist(bl_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     bl = db.query(Blacklist).get(bl_id)
     if not bl:
-        raise HTTPException(404, "Blacklist não encontrada")
+        raise HTTPException(404, "Blacklist not found")
     bl.enabled = not bl.enabled
     db.commit()
     db.refresh(bl)

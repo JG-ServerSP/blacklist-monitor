@@ -27,7 +27,7 @@ def create_group(payload: IPGroupCreate, db: Session = Depends(get_db), user: Us
 def update_group(group_id: int, payload: IPGroupCreate, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     group = db.query(IPGroup).get(group_id)
     if not group:
-        raise HTTPException(404, "Grupo não encontrado")
+        raise HTTPException(404, "Group not found")
     for k, v in payload.model_dump().items():
         setattr(group, k, v)
     db.commit()
@@ -39,7 +39,7 @@ def update_group(group_id: int, payload: IPGroupCreate, db: Session = Depends(ge
 def delete_group(group_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     group = db.query(IPGroup).get(group_id)
     if not group:
-        raise HTTPException(404, "Grupo não encontrado")
+        raise HTTPException(404, "Group not found")
     db.delete(group)
     db.commit()
     return {"ok": True}

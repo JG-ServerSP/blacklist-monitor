@@ -34,7 +34,7 @@ def scan_database(db: Session) -> list[dict]:
             "type": "dangling_ip_block_ref",
             "id": ip.id,
             "label": ip.ip,
-            "detail": f"IP {ip.ip} referencia o bloco id {ip.block_id}, que não existe mais",
+            "detail": f"IP {ip.ip} references block id {ip.block_id}, which no longer exists",
         })
 
     return issues

@@ -30,7 +30,7 @@ def create_service(payload: ServiceCreate, db: Session = Depends(get_db), user: 
 def delete_service(service_id: int, db: Session = Depends(get_db), user: User = Depends(require_operator)):
     svc = db.query(Service).get(service_id)
     if not svc:
-        raise HTTPException(404, "Serviço não encontrado")
+        raise HTTPException(404, "Service not found")
     db.delete(svc)
     db.commit()
     return {"ok": True}

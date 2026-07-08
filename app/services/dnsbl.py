@@ -149,7 +149,7 @@ async def check_zone(
         except dns.resolver.NoAnswer:
             return DNSBLResult(listed=False)
         except Exception:
-            return DNSBLResult(listed=False, error=f"Erro de resolução DNS: {exc}")
+            return DNSBLResult(listed=False, error=f"DNS resolution error: {exc}")
     except Exception as exc:  # defensive: never let one bad zone break the whole run
         return DNSBLResult(listed=False, error=str(exc))
 
@@ -158,8 +158,8 @@ async def check_zone(
             listed=False,
             codes=codes,
             error=(
-                "Spamhaus retornou código de erro do resolver (127.255.255.x) — "
-                "consulta bloqueada/mal configurada, não uma listagem real."
+                "Spamhaus returned a resolver error code (127.255.255.x) — "
+                "query blocked/misconfigured, not a real listing."
             ),
         )
 
