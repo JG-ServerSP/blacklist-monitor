@@ -1,129 +1,132 @@
 # Blacklist Monitor
 
-Implementação do MVP descrito em `PLANEJAMENTO-blacklist-monitor.md`: monitoramento de
-reputação de IPs/domínios contra DNSBLs (Spamhaus ZEN via DQS, Barracuda, SpamCop, PSBL,
-SORBS, UCEPROTECT, SURBL, Spamhaus DBL), com pré-verificação por ping, ciclo de vida de
-listagens, notificações (e-mail + Pushover), diagnóstico rápido (rDNS/FCrDNS/SPF/DKIM/DMARC/
-porta 25), regras de alerta, importação de IPs/CIDR/CSV, RBAC com 2FA e um dashboard no
-padrão do mockup fornecido.
+Implementation of the MVP described in `PLANEJAMENTO-blacklist-monitor.md`: IP/domain
+reputation monitoring against DNSBLs (Spamhaus ZEN via DQS, Barracuda, SpamCop, PSBL,
+SORBS, UCEPROTECT, SURBL, Spamhaus DBL), with ping pre-check, listing lifecycle,
+notifications (email + Pushover), quick diagnostics (rDNS/FCrDNS/SPF/DKIM/DMARC/port 25),
+alert rules, IP/CIDR/CSV import, RBAC with 2FA, and a dashboard matching the provided
+mockup.
 
-## Diferenças em relação à stack sugerida no planejamento
+## Differences from the stack suggested in the plan
 
-O documento original sugere Postgres + Celery/Redis + React/Vite + Docker + Unbound. Este
-MVP foi construído para rodar em um ambiente **somente com Python 3.12** (sem Node/Docker
-disponíveis durante o desenvolvimento), então:
+The original document suggests Postgres + Celery/Redis + React/Vite + Docker + Unbound.
+This MVP was built to run in an environment with **only Python 3.12** (no Node/Docker
+available during development), so:
 
-- **Scheduler**: APScheduler in-process em vez de Celery + Redis. Funcionalmente equivalente
-  para o volume do MVP (verificação geral + reverificação acelerada de IPs listados); trocar
-  por Celery é direto se o volume crescer (a lógica de verificação já está isolada em
-  `app/services/checker.py`, independente do agendador).
-- **Banco**: SQLite por padrão (`DATABASE_URL`), mas o código já é Postgres-ready (basta
-  trocar a URL — ver `docker-compose.yml`, que já sobe Postgres 16 em produção).
-- **Frontend**: em vez de React/Vite, é uma UI servidor-renderizada (FastAPI + Jinja2 +
-  JS puro + Chart.js/Tailwind via CDN, sem build step) no mesmo tema escuro e mesma
-  estrutura de telas do mockup. A API REST (`/api/...`) é a mesma que um frontend React
-  consumiria — trocar a camada de apresentação depois não exige mudanças no backend.
+- **Scheduler**: in-process APScheduler instead of Celery + Redis. Functionally equivalent
+  for the MVP's volume (general check + accelerated re-check of listed IPs); swapping in
+  Celery is straightforward if volume grows (the check logic is already isolated in
+  `app/services/checker.py`, independent of the scheduler).
+- **Database**: SQLite by default (`DATABASE_URL`), but the code is already Postgres-ready
+  (just swap the URL — see `docker-compose.yml`, which already runs Postgres 16 in
+  production).
+- **Frontend**: instead of React/Vite, this is a server-rendered UI (FastAPI + Jinja2 +
+  vanilla JS + Chart.js/Tailwind via CDN, no build step) using the same dark theme and
+  screen structure as the mockup. The REST API (`/api/...`) is the same one a React
+  frontend would consume — swapping the presentation layer later requires no backend
+  changes.
 
-Tudo relacionado a **Spamhaus DQS, Unbound dedicado, rate limiting, RBAC, 2FA, ciclo de vida
-de listagem, deduplicação de alertas e diagnóstico** segue exatamente o que está no
-documento de planejamento.
+Everything related to **Spamhaus DQS, a dedicated Unbound resolver, rate limiting, RBAC,
+2FA, listing lifecycle, alert deduplication, and diagnostics** follows exactly what is in
+the planning document.
 
-## Status neste servidor
+## Status on this server
 
-Rodando em produção via **systemd** (sem Docker), banco limpo — sem dados de demonstração,
-apenas as 8 blacklists padrão (configuração real do motor, não "demo"):
+Running in production via **systemd** (no Docker), clean database — no demo data, just the
+8 default blacklists (real engine configuration, not "demo"):
 
-- Serviço: `systemctl status blacklistmonitor` (habilitado no boot)
+- Service: `systemctl status blacklistmonitor` (enabled on boot)
 - Logs: `tail -f /var/log/blacklistmonitor.log`
-- Config real: `/root/blacklistmonitor/.env` (com `SECRET_KEY`/`FERNET_KEY` gerados, fora do git)
-- Banco: SQLite em `/root/blacklistmonitor/blacklist_monitor.db`
-- Acesso: `http://<ip-do-servidor>:8000` (HTTP puro por enquanto — sem domínio/TLS configurado)
+- Real config: `/root/blacklistmonitor/.env` (with generated `SECRET_KEY`/`FERNET_KEY`, out
+  of git)
+- Database: SQLite at `/root/blacklistmonitor/blacklist_monitor.db`
+- Access: `http://<server-ip>:8000` (plain HTTP for now — no domain/TLS configured)
 
-O usuário admin (`admin@seudominio.com`) foi criado com senha aleatória, exibida uma única
-vez no log de inicialização. Troque-a em **Configurações → Minha Conta** assim que logar
-(endpoint `POST /api/auth/change-password`, já implementado).
+The admin user (`admin@seudominio.com`) was created with a random password, shown once in
+the startup log. Change it under **Settings → My Account** as soon as you log in (endpoint
+`POST /api/auth/change-password`, already implemented).
 
-Para ir além (Postgres + Unbound via Docker Compose, ou TLS com domínio próprio via Nginx +
-Let's Encrypt), veja as seções abaixo — não configurados aqui por padrão para evitar abrir
-portas/instalar Docker sem confirmação.
+To go further (Postgres + Unbound via Docker Compose, or TLS with your own domain via
+Nginx + Let's Encrypt), see the sections below — not configured here by default to avoid
+opening ports/installing Docker without confirmation.
 
-## Rodando localmente (dev, SQLite)
+## Running locally (dev, SQLite)
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # ajuste SECRET_KEY/FERNET_KEY em produção
+cp .env.example .env   # set SECRET_KEY/FERNET_KEY for production
 uvicorn app.main:app --reload
 ```
 
-Acesse `http://localhost:8000`. No primeiro start, o banco é criado e populado com dados de
-demonstração (`app/seed.py`): 5 clientes, blacklists padrão, IPs de exemplo com listagens
-ativas e um usuário administrador:
+Visit `http://localhost:8000`. On first start, the database is created and seeded with
+demo data (`app/seed.py`): 5 clients, default blacklists, sample IPs with active listings,
+and an admin user:
 
-- **E-mail:** `admin@seudominio.com`
-- **Senha:** `admin123`
+- **Email:** `admin@seudominio.com`
+- **Password:** `admin123`
 
-> Troque essa senha (ou crie outro admin e desative este) antes de qualquer uso real.
+> Change this password (or create another admin and disable this one) before any real use.
 
-## Rodando com Docker Compose (produção: Postgres + Unbound)
+## Running with Docker Compose (production: Postgres + Unbound)
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 ```
 
-Isso sobe `api` (FastAPI + scheduler), `postgres` e `unbound` (resolver DNS dedicado,
-essencial para Spamhaus/SORBS — ver nota de produção abaixo).
+This brings up `api` (FastAPI + scheduler), `postgres`, and `unbound` (dedicated DNS
+resolver, essential for Spamhaus/SORBS — see the production note below).
 
-## Notas de produção importantes
+## Important production notes
 
-- **Resolver DNS dedicado**: Spamhaus, SORBS e outras bloqueiam ou degradam consultas vindas
-  de resolvers públicos (8.8.8.8, 1.1.1.1) ou de alto volume. Configure `DNS_RESOLVERS` para
-  apontar exclusivamente para o Unbound local (já incluído no `docker-compose.yml`), nunca
-  para um resolver público.
-- **Chave Spamhaus DQS**: obrigatória para Spamhaus ZEN/DBL. Configure em
-  Configurações → Spamhaus DQS, ou por blacklist individual (o campo é criptografado em
-  repouso com Fernet).
-- **Ping/ICMP**: o pré-check usa o binário `ping` do sistema (não requer socket raw/root);
-  o `Dockerfile` já instala `iputils-ping`. Em ambientes que bloqueiam ICMP de saída, use o
-  modo `tcp_fallback` por grupo.
-- **Segredos**: `SECRET_KEY` (JWT) e `FERNET_KEY` (criptografia de chaves/senhas em repouso)
-  têm valores de exemplo em `.env.example` — gere valores novos antes de produção:
+- **Dedicated DNS resolver**: Spamhaus, SORBS, and other lists block or degrade queries
+  coming from public resolvers (8.8.8.8, 1.1.1.1) or high-volume sources. Set
+  `DNS_RESOLVERS` to point exclusively to the local Unbound (already included in
+  `docker-compose.yml`), never to a public resolver.
+- **Spamhaus DQS key**: required for Spamhaus ZEN/DBL. Configure it under
+  Settings → Spamhaus DQS, or per individual blacklist (the field is encrypted at rest
+  with Fernet).
+- **Ping/ICMP**: the pre-check uses the system's `ping` binary (no raw socket/root
+  required); the `Dockerfile` already installs `iputils-ping`. In environments that block
+  outbound ICMP, use `tcp_fallback` mode per group.
+- **Secrets**: `SECRET_KEY` (JWT) and `FERNET_KEY` (encryption of keys/passwords at rest)
+  have example values in `.env.example` — generate new values before production:
   ```bash
   python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
   ```
-- **Backups**: configure backup diário do Postgres (retenção sugerida: 30 dias) — não
-  incluído neste MVP.
-- **CIDR**: importação tem limite de segurança (`MAX_CIDR_EXPANSION`, padrão 1024 endereços
-  = /22) para evitar expansão acidental de blocos grandes (ex.: /8).
+- **Backups**: set up daily Postgres backups (suggested retention: 30 days) — not included
+  in this MVP.
+- **CIDR**: import has a safety limit (`MAX_CIDR_EXPANSION`, default 1024 addresses = /22)
+  to avoid accidentally expanding large blocks (e.g. /8).
 
-## Estrutura
+## Structure
 
 ```
 app/
-  main.py              # FastAPI app, rotas de página, startup (seed + scheduler)
+  main.py              # FastAPI app, page routes, startup (seed + scheduler)
   config.py            # Settings (env vars)
-  models.py            # SQLAlchemy ORM (todo o modelo de dados do planejamento)
+  models.py            # SQLAlchemy ORM (the full data model from the plan)
   schemas.py           # Pydantic (request/response)
   security.py          # JWT, bcrypt, TOTP (2FA), RBAC (admin/operator/readonly)
-  crypto.py            # Fernet para chaves/senhas em repouso
-  seed.py              # Dados de demonstração (idempotente)
+  crypto.py            # Fernet for keys/passwords at rest
+  seed.py              # Demo data (idempotent)
   services/
-    cidr.py            # Expansão de CIDR/range/IP com limite de segurança
-    ping.py            # Pré-check ICMP (3 modos) com cache
-    dnsbl.py           # Motor de consulta DNSBL (reversão de octetos/nibbles,
-                       # rate limiting por zona, DQS, detecção de erro do resolver)
-    diagnostics.py     # rDNS/FCrDNS/SPF/DKIM/DMARC/porta 25
-    notifications.py   # SMTP + Pushover + avaliação de regras de alerta
-    checker.py          # Orquestra ping + DNSBL + ciclo de vida de listagem + notificação
-    scheduler.py        # APScheduler: verificação geral + reverificação acelerada
-  routers/              # Um módulo por recurso (auth, clients, ips, blacklists, ...)
-  templates/, static/   # UI server-rendered (dark theme do mockup)
+    cidr.py            # CIDR/range/IP expansion with a safety limit
+    ping.py            # ICMP pre-check (3 modes) with cache
+    dnsbl.py           # DNSBL query engine (octet/nibble reversal,
+                       # per-zone rate limiting, DQS, resolver error detection)
+    diagnostics.py     # rDNS/FCrDNS/SPF/DKIM/DMARC/port 25
+    notifications.py   # SMTP + Pushover + alert rule evaluation
+    checker.py          # Orchestrates ping + DNSBL + listing lifecycle + notification
+    scheduler.py        # APScheduler: general check + accelerated re-check
+  routers/              # One module per resource (auth, clients, ips, blacklists, ...)
+  templates/, static/   # Server-rendered UI (dark theme from the mockup)
 ```
 
 ## API
 
-Todas as rotas de leitura usadas pelo dashboard são públicas (somente leitura); criação/
-edição/remoção exige um token JWT (`POST /api/auth/login`) com papel `operator` ou `admin`
-conforme o recurso. Documentação automática em `/docs`.
+All read routes used by the dashboard are public (read-only); create/update/delete
+requires a JWT token (`POST /api/auth/login`) with `operator` or `admin` role depending on
+the resource. Auto-generated docs at `/docs`.
