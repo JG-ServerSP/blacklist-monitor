@@ -174,6 +174,11 @@ class Domain(Base):
 
     client = relationship("Client")
     service = relationship("Service")
+    listings = relationship(
+        "Listing",
+        back_populates="domain",
+        cascade="all, delete-orphan",
+    )
 
 
 class Blacklist(Base):
@@ -210,7 +215,13 @@ class Listing(Base):
     ticket_ref = Column(String, nullable=True)
 
     ip = relationship("MonitoredIP", back_populates="listings")
+    domain = relationship("Domain", back_populates="listings")
     blacklist = relationship("Blacklist")
+    notifications = relationship(
+        "Notification",
+        back_populates="listing",
+        cascade="all, delete-orphan",
+    )
 
 
 class CheckRun(Base):
@@ -244,6 +255,8 @@ class Notification(Base):
     sent_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="sent")
     error = Column(Text, nullable=True)
+
+    listing = relationship("Listing", back_populates="notifications")
 
 
 class ActivityLog(Base):
