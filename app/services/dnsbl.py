@@ -13,6 +13,7 @@ fine for low-volume testing but NOT for production Spamhaus DQS usage.
 """
 import asyncio
 import ipaddress
+import logging
 import time
 from dataclasses import dataclass, field
 
@@ -23,9 +24,23 @@ import dns.resolver
 
 from app.config import Settings, get_settings
 
+logger = logging.getLogger("dnsbl")
+
 # Spamhaus returns 127.255.255.x when the querying resolver is blocked/misused.
 # This must NEVER be interpreted as a real listing.
 SPAMHAUS_ERROR_PREFIX = "127.255.255."
+
+# A genuine DNSBL listing always answers inside 127.0.0.0/8. Anything else
+# (a public IP, an RFC1918 address, a captive-portal wildcard) means the
+# resolver hijacked the NXDOMAIN — not a real listing.
+_LOOPBACK_NET = ipaddress.ip_network("127.0.0.0/8")
+
+
+def _is_listing_code(code: str) -> bool:
+    try:
+        return ipaddress.ip_address(code) in _LOOPBACK_NET
+    except ValueError:
+        return False
 
 
 @dataclass
@@ -37,7 +52,16 @@ class DNSBLResult:
 
 
 class RateLimiter:
-    """Simple token-bucket per blacklist zone to respect rate_limit_qps."""
+    """Simple token-bucket per blacklist zone to respect rate_limit_qps.
+
+    Buckets are keyed by zone, so their count is naturally bounded by the
+    number of configured blacklists. The idle-eviction below is purely
+    defensive against unexpected unbounded growth.
+    """
+
+    # Well above any realistic number of blacklist zones; only trips on anomaly.
+    _MAX_BUCKETS = 1000
+    _IDLE_EVICT_SECONDS = 3600
 
     def __init__(self):
         self._buckets: dict[str, tuple[float, float]] = {}  # zone -> (tokens, last_ts)
@@ -47,6 +71,12 @@ class RateLimiter:
         if zone not in self._locks:
             self._locks[zone] = asyncio.Lock()
         return self._locks[zone]
+
+    def _evict_idle(self, now: float) -> None:
+        stale = [z for z, (_, ts) in self._buckets.items() if now - ts > self._IDLE_EVICT_SECONDS]
+        for z in stale:
+            self._buckets.pop(z, None)
+            self._locks.pop(z, None)
 
     async def acquire(self, zone: str, qps: float):
         qps = max(qps, 0.1)
@@ -64,6 +94,8 @@ class RateLimiter:
             else:
                 tokens -= 1
             self._buckets[zone] = (tokens, now)
+            if len(self._buckets) > self._MAX_BUCKETS:
+                self._evict_idle(now)
 
 
 _rate_limiter = RateLimiter()
@@ -163,6 +195,17 @@ async def check_zone(
             ),
         )
 
+    # Guard against resolver NXDOMAIN hijacking (captive portals, ISP wildcards,
+    # DNS64): a real listing always answers in 127.0.0.0/8. Treat anything else
+    # as "not listed" (with a warning) rather than an error, so it doesn't fire
+    # a false check-failure alert.
+    if not any(_is_listing_code(c) for c in codes):
+        logger.warning(
+            "DNSBL %s answered %s for %s outside 127.0.0.0/8 — likely resolver "
+            "hijack, treating as NOT listed", query_name, codes, ip_or_domain,
+        )
+        return DNSBLResult(listed=False, codes=codes)
+
     txt = None
     if fetch_txt:
         try:
@@ -178,7 +221,7 @@ async def check_ip_against_blacklists(
     ip: str, blacklists: list, settings: Settings | None = None, concurrency: int = 10
 ) -> dict[int, DNSBLResult]:
     """blacklists: list of Blacklist ORM objects (already filtered to enabled + matching type)."""
-    from app.crypto import decrypt
+    from app.crypto import safe_decrypt
 
     settings = settings or get_settings()
     sem = asyncio.Semaphore(concurrency)
@@ -186,7 +229,18 @@ async def check_ip_against_blacklists(
 
     async def run_one(bl):
         async with sem:
-            key = decrypt(bl.api_key_encrypted) if bl.requires_key and bl.api_key_encrypted else settings.spamhaus_dqs_key
+            if bl.requires_key and bl.api_key_encrypted:
+                key = safe_decrypt(bl.api_key_encrypted)
+                if key is None:
+                    # corrupted/rotated per-blacklist key: fall back to the
+                    # global DQS key instead of breaking the whole batch.
+                    logger.warning("Blacklist %s: could not decrypt api_key, falling back to global DQS key", bl.name)
+                    key = settings.spamhaus_dqs_key
+            else:
+                key = settings.spamhaus_dqs_key
+            if bl.requires_key and not key:
+                results[bl.id] = DNSBLResult(listed=False, error=f"{bl.name}: DQS key required but not configured")
+                return
             is_domain = bl.type.value == "domain"
             res = await check_zone(ip, bl.zone, key, is_domain, bl.rate_limit_qps, settings=settings)
             results[bl.id] = res

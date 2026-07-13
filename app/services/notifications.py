@@ -3,6 +3,7 @@
 Alert is fired only on state TRANSITION (entered/left a blacklist), never
 every check cycle, per the planning doc's deduplication requirement.
 """
+import asyncio
 import smtplib
 from email.mime.text import MIMEText
 
@@ -10,7 +11,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.models import AlertRule, Listing, MonitoredIP, Notification, Severity, User
+from app.models import AlertRule, Domain, Listing, MonitoredIP, Notification, Severity, User
 
 SEVERITY_RANK = {Severity.low: 0, Severity.medium: 1, Severity.high: 2, Severity.critical: 3}
 PUSHOVER_PRIORITY = {Severity.critical: 2, Severity.high: 1, Severity.medium: 0, Severity.low: -1}
@@ -97,7 +98,7 @@ def render_check_error_email(target: str, kind: str, error_details: list[tuple[s
     """
 
 
-def dispatch_check_error(
+async def dispatch_check_error(
     db: Session,
     target: str,
     kind: str,
@@ -131,7 +132,7 @@ def dispatch_check_error(
             if ctype == "email":
                 to = channel.get("to")
                 body = render_check_error_email(target, kind, error_details, resolved)
-                ok, error = send_email(settings, to, f"[Blacklist Monitor] {subject_prefix} - {target}", body)
+                ok, error = await asyncio.to_thread(send_email, settings, to, f"[Blacklist Monitor] {subject_prefix} - {target}", body)
                 status_ = "sent" if ok else "failed"
                 recipient = to
             elif ctype == "pushover":
@@ -141,7 +142,7 @@ def dispatch_check_error(
                     if resolved
                     else "; ".join(f"{n}: {e}" for n, e in error_details) or "check error"
                 )
-                ok, error = send_pushover(settings, user_key, f"{subject_prefix} — {kind} {target}", message, priority=1 if not resolved else 0)
+                ok, error = await asyncio.to_thread(send_pushover, settings, user_key, f"{subject_prefix} — {kind} {target}", message, 1 if not resolved else 0)
                 status_ = "sent" if ok else "failed"
                 recipient = user_key
             elif ctype == "user":
@@ -151,13 +152,13 @@ def dispatch_check_error(
                 to = target_user.notify_email or target_user.email
                 if to:
                     body = render_check_error_email(target, kind, error_details, resolved)
-                    ok, err = send_email(settings, to, f"[Blacklist Monitor] {subject_prefix} - {target}", body)
+                    ok, err = await asyncio.to_thread(send_email, settings, to, f"[Blacklist Monitor] {subject_prefix} - {target}", body)
                     db.add(Notification(rule_id=rule.id, channel="email", recipient=to,
                                          status="sent" if ok else "failed", error=err))
                 if target_user.pushover_user_key:
                     message = "back to normal" if resolved else "check error"
-                    ok, err = send_pushover(settings, target_user.pushover_user_key, f"{subject_prefix} — {kind} {target}",
-                                             message, priority=1 if not resolved else 0)
+                    ok, err = await asyncio.to_thread(send_pushover, settings, target_user.pushover_user_key, f"{subject_prefix} — {kind} {target}",
+                                             message, 1 if not resolved else 0)
                     db.add(Notification(rule_id=rule.id, channel="pushover", recipient=target_user.pushover_user_key,
                                          status="sent" if ok else "failed", error=err))
                 continue
@@ -168,16 +169,20 @@ def dispatch_check_error(
     db.commit()
 
 
-def _matches_conditions(rule: AlertRule, listing: Listing, ip: MonitoredIP | None, resolved: bool) -> bool:
+def _matches_conditions(rule: AlertRule, listing: Listing, target_obj, resolved: bool) -> bool:
+    """``target_obj`` is the MonitoredIP or Domain the listing belongs to (or
+    None). Domains have no group, so group_id conditions never match them."""
     cond = rule.conditions or {}
+    group_id = getattr(target_obj, "group_id", None)
+    client_id = getattr(target_obj, "client_id", None)
     min_severity = cond.get("min_severity")
     if min_severity and SEVERITY_RANK.get(listing.severity, 0) < SEVERITY_RANK.get(Severity(min_severity), 0):
         return False
     if cond.get("blacklist_id") and listing.blacklist_id != cond["blacklist_id"]:
         return False
-    if cond.get("group_id") and (not ip or ip.group_id != cond["group_id"]):
+    if cond.get("group_id") and group_id != cond["group_id"]:
         return False
-    if cond.get("client_id") and (not ip or ip.client_id != cond["client_id"]):
+    if cond.get("client_id") and client_id != cond["client_id"]:
         return False
     if cond.get("on_resolution") and not resolved:
         return False
@@ -186,32 +191,44 @@ def _matches_conditions(rule: AlertRule, listing: Listing, ip: MonitoredIP | Non
     return True
 
 
-def dispatch_for_listing(db: Session, listing: Listing, resolved: bool = False) -> None:
+def _resolve_target(db: Session, listing: Listing) -> tuple[object | None, str]:
+    """Returns (target ORM object, human label) for a listing that may belong
+    to either a MonitoredIP or a Domain."""
+    if listing.ip_id:
+        obj = db.query(MonitoredIP).get(listing.ip_id)
+        return obj, (obj.ip if obj else "?")
+    if listing.domain_id:
+        obj = db.query(Domain).get(listing.domain_id)
+        return obj, (obj.domain if obj else "?")
+    return None, "?"
+
+
+async def dispatch_for_listing(db: Session, listing: Listing, resolved: bool = False) -> None:
     from app.runtime_settings import effective_settings
 
     settings = effective_settings(db)
-    ip = db.query(MonitoredIP).filter(MonitoredIP.id == listing.ip_id).first() if listing.ip_id else None
+    target_obj, target_label = _resolve_target(db, listing)
     blacklist = listing.blacklist
     rules = db.query(AlertRule).filter(AlertRule.enabled == True).all()  # noqa: E712
 
     for rule in rules:
-        if not _matches_conditions(rule, listing, ip, resolved):
+        if not _matches_conditions(rule, listing, target_obj, resolved):
             continue
         for channel in rule.channels or []:
             ctype = channel.get("type")
             status_, error = "sent", None
             if ctype == "email":
                 to = channel.get("to")
-                body = render_listing_email(ip.ip if ip else "?", blacklist.name, listing.severity.value, listing.txt_reason, resolved)
-                ok, error = send_email(settings, to, f"[Blacklist Monitor] {blacklist.name} - {ip.ip if ip else ''}", body)
+                body = render_listing_email(target_label, blacklist.name, listing.severity.value, listing.txt_reason, resolved)
+                ok, error = await asyncio.to_thread(send_email, settings, to, f"[Blacklist Monitor] {blacklist.name} - {target_label}", body)
                 status_ = "sent" if ok else "failed"
                 recipient = to
             elif ctype == "pushover":
                 user_key = channel.get("user_key")
                 priority = PUSHOVER_PRIORITY.get(listing.severity, 0)
                 title = f"{'Removed from' if resolved else 'Listed on'} {blacklist.name}"
-                message = f"IP {ip.ip if ip else '?'} - severity {listing.severity.value}"
-                ok, error = send_pushover(settings, user_key, title, message, priority)
+                message = f"{target_label} - severity {listing.severity.value}"
+                ok, error = await asyncio.to_thread(send_pushover, settings, user_key, title, message, priority)
                 status_ = "sent" if ok else "failed"
                 recipient = user_key
             elif ctype == "user":
@@ -220,15 +237,15 @@ def dispatch_for_listing(db: Session, listing: Listing, resolved: bool = False) 
                     continue
                 to = target.notify_email or target.email
                 if to:
-                    body = render_listing_email(ip.ip if ip else "?", blacklist.name, listing.severity.value, listing.txt_reason, resolved)
-                    ok, err = send_email(settings, to, f"[Blacklist Monitor] {blacklist.name} - {ip.ip if ip else ''}", body)
+                    body = render_listing_email(target_label, blacklist.name, listing.severity.value, listing.txt_reason, resolved)
+                    ok, err = await asyncio.to_thread(send_email, settings, to, f"[Blacklist Monitor] {blacklist.name} - {target_label}", body)
                     db.add(Notification(listing_id=listing.id, rule_id=rule.id, channel="email", recipient=to,
                                          status="sent" if ok else "failed", error=err))
                 if target.pushover_user_key:
                     priority = PUSHOVER_PRIORITY.get(listing.severity, 0)
                     title = f"{'Removed from' if resolved else 'Listed on'} {blacklist.name}"
-                    message = f"IP {ip.ip if ip else '?'} - severity {listing.severity.value}"
-                    ok, err = send_pushover(settings, target.pushover_user_key, title, message, priority)
+                    message = f"{target_label} - severity {listing.severity.value}"
+                    ok, err = await asyncio.to_thread(send_pushover, settings, target.pushover_user_key, title, message, priority)
                     db.add(Notification(listing_id=listing.id, rule_id=rule.id, channel="pushover", recipient=target.pushover_user_key,
                                          status="sent" if ok else "failed", error=err))
                 continue

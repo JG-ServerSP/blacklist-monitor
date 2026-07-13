@@ -2,11 +2,15 @@
 the `settings` table (SettingKV), so changes made in the Settings UI
 take effect immediately without a restart.
 """
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
-from app.crypto import decrypt
+from app.crypto import safe_decrypt
 from app.models import SettingKV
+
+logger = logging.getLogger("runtime_settings")
 
 OVERRIDABLE_KEYS = {
     "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_use_tls", "smtp_from",
@@ -30,7 +34,10 @@ def effective_settings(db: Session) -> Settings:
     for row in rows:
         if not row.value_encrypted:
             continue
-        value = decrypt(row.value_encrypted)
+        value = safe_decrypt(row.value_encrypted)
+        if value is None:
+            logger.warning("Skipping setting %r: could not decrypt (corrupted or key rotated)", row.key)
+            continue
         if not value:
             continue
         caster = _CASTERS.get(row.key)

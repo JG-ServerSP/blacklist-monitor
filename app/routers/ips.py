@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import ActivityLog, IPBlock, Listing, MonitoredIP, User
 from app.schemas import BulkIdsRequest, BulkIPUpdateRequest, IPBlockOut, IPImportRequest, ListingOut, MonitoredIPOut, MonitoredIPUpdate
 from app.security import get_current_user, require_operator
-from app.services.checker import check_single_ip, run_check_batch
+from app.services.checker import check_single_ip, queue_check_batch
 from app.services.cidr import CIDRExpansionError, parse_entry
 
 router = APIRouter(prefix="/api/ips", tags=["ips"])
@@ -174,16 +174,16 @@ async def import_csv(
     return {"created": total_created, "errors": errors}
 
 
-@router.post("/bulk-check")
+@router.post("/bulk-check", status_code=202)
 async def bulk_check(payload: BulkIdsRequest, db: Session = Depends(get_db), user: User = Depends(require_operator)):
-    rows = db.query(MonitoredIP).filter(MonitoredIP.id.in_(payload.ids)).all()
-    if not rows:
+    ids = [row[0] for row in db.query(MonitoredIP.id).filter(MonitoredIP.id.in_(payload.ids)).all()]
+    if not ids:
         raise HTTPException(404, "No IP found for the given IDs")
-    run = await run_check_batch(db, rows)
-    return {"checked": len(rows), "errors": run.errors}
+    run = queue_check_batch(db, ids)
+    return {"run_id": run.id, "queued": len(ids)}
 
 
-@router.post("/check-all")
+@router.post("/check-all", status_code=202)
 async def check_all(
     status_filter: str | None = None,
     client_id: int | None = None,
@@ -192,11 +192,11 @@ async def check_all(
     db: Session = Depends(get_db),
     user: User = Depends(require_operator),
 ):
-    rows = _filtered_ips_query(db, status_filter, client_id, group_id, q).all()
-    if not rows:
+    ids = [row[0] for row in _filtered_ips_query(db, status_filter, client_id, group_id, q).with_entities(MonitoredIP.id).all()]
+    if not ids:
         raise HTTPException(404, "No IP found for the given filter")
-    run = await run_check_batch(db, rows)
-    return {"checked": len(rows), "errors": run.errors}
+    run = queue_check_batch(db, ids)
+    return {"run_id": run.id, "queued": len(ids)}
 
 
 @router.post("/bulk-update")

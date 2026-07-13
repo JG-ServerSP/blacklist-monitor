@@ -15,6 +15,8 @@ settings = get_settings()
 
 # in-memory ping cache: ip -> (is_up: bool, checked_at: datetime)
 _ping_cache: dict[str, tuple[bool, datetime]] = {}
+# Defensive upper bound so a large fleet can't grow the cache without limit.
+_PING_CACHE_MAX = 10_000
 
 DEFAULT_TCP_PORTS = [80, 443, 25, 22]
 
@@ -71,7 +73,22 @@ def _cache_get(ip: str) -> bool | None:
     return is_up
 
 
+def _prune_ping_cache() -> None:
+    """Lazily drop expired entries; if still over the cap, evict the oldest
+    half. Keeps the cache bounded without a background sweeper."""
+    now = datetime.utcnow()
+    ttl = timedelta(minutes=settings.ping_cache_minutes)
+    for ip in [k for k, (_, ts) in _ping_cache.items() if now - ts > ttl]:
+        _ping_cache.pop(ip, None)
+    if len(_ping_cache) >= _PING_CACHE_MAX:
+        oldest = sorted(_ping_cache, key=lambda k: _ping_cache[k][1])[: len(_ping_cache) // 2]
+        for ip in oldest:
+            _ping_cache.pop(ip, None)
+
+
 def _cache_set(ip: str, is_up: bool) -> None:
+    if len(_ping_cache) >= _PING_CACHE_MAX:
+        _prune_ping_cache()
     _ping_cache[ip] = (is_up, datetime.utcnow())
 
 
